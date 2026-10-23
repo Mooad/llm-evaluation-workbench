@@ -1,0 +1,25 @@
+@if (hits().length === 0) {
+  <p class="hint">Aucun extrait retrouvé : le modèle a reçu la question sans contexte.</p>
+} @else {
+  <ol class="sources">
+    @for (hit of hits(); track hit.documentId + '#' + hit.chunkIndex; let i = $index) {
+      <li class="source">
+        <div class="source__head">
+          <span class="ref mono">[{{ i + 1 }}]</span>
+          <span class="score mono" title="Similarité cosine (Qdrant) : un classement, pas une probabilité">
+            {{ score(hit.score) }}
+          </span>
+          <span class="file" [title]="hit.citation">{{ hit.fileName }}</span>
+          <span class="loc">{{ locationLabel(hit.location) }}</span>
+        </div>
+        @if (hit.section) {
+          <p class="section" title="Section du document (sommaire PDF)">{{ hit.section }}</p>
+        }
+        <details>
+          <summary>{{ hit.excerpt }}</summary>
+          <p class="content">{{ hit.content }}</p>
+        </details>
+      </li>
+    }
+  </ol>
+}

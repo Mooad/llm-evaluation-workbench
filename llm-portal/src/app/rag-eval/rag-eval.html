@@ -1,0 +1,234 @@
+<div class="page">
+  <section class="card" aria-labelledby="launch-title">
+    <header class="heading">
+      <svg class="heading__icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M5 20V11M12 20V4M19 20v-6" />
+      </svg>
+      <div>
+        <h2 id="launch-title">Évaluation RAG</h2>
+        <p class="hint">
+          35 questions dont la réponse est connue à l'avance (llm-rag, <span class="mono">evaluation/rag-dataset.json</span>),
+          sur les documents indexés. La recherche est mesurée sans LLM ; les réponses, avec et sans RAG.
+        </p>
+      </div>
+    </header>
+
+    <form class="launch" (submit)="$event.preventDefault(); launch()">
+      <div class="field">
+        <label for="eval-label">Nom de l'exécution</label>
+        <input id="eval-label" [value]="label()" (input)="label.set($any($event.target).value)" placeholder="ex. sections hors embedding" />
+      </div>
+      <div class="field field--small">
+        <label for="eval-topk">Top-K</label>
+        <input id="eval-topk" #topKInput type="number" min="1" max="20" [value]="topK()" (change)="setTopK(topKInput)" />
+      </div>
+      <div class="field">
+        <label for="eval-scope">Où chercher</label>
+        <select id="eval-scope" [value]="scope()" (change)="scope.set($any($event.target).value)">
+          <option value="ALL">Dans tous les documents</option>
+          <option value="COLLECTION">Dans la collection du document attendu</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="eval-index" title="Stratégie de découpage évaluée : les mêmes documents, découpés autrement">Index</label>
+        <select id="eval-index" (change)="index.set($any($event.target).value)">
+          @for (i of library.indexes(); track i.name) {
+            <option [value]="i.isDefault ? '' : i.name" [selected]="index() === (i.isDefault ? '' : i.name)">
+              {{ i.name }} · {{ i.label }} ({{ i.ready }}/{{ i.documents }})
+            </option>
+          }
+        </select>
+      </div>
+      <fieldset class="models" [disabled]="!withGeneration()">
+        <legend>Modèle qui répond</legend>
+        <select aria-label="Fournisseur de génération" (change)="genProvider.set($any($event.target).value)">
+          <option value="" [selected]="!genProvider()">Défaut{{ config.providers() ? ' (' + config.providers()!.default + ')' : '' }}</option>
+          @for (name of config.providers()?.available ?? []; track name) {
+            <option [value]="name" [selected]="name === genProvider()">{{ name }}</option>
+          }
+        </select>
+        <input aria-label="Modèle de génération" [value]="genModel()" (input)="genModel.set($any($event.target).value)" placeholder="modèle par défaut" />
+      </fieldset>
+      <fieldset class="models" [disabled]="!withGeneration()">
+        <legend title="Un juge distinct évite qu'un modèle note ses propres réponses">Juge</legend>
+        <select aria-label="Fournisseur du juge" (change)="judgeProvider.set($any($event.target).value)">
+          <option [value]="SAME" [selected]="judgeProvider() === SAME">Comme la génération</option>
+          <option value="" [selected]="judgeProvider() === ''">Défaut{{ config.providers() ? ' (' + config.providers()!.default + ')' : '' }}</option>
+          @for (name of config.providers()?.available ?? []; track name) {
+            <option [value]="name" [selected]="name === judgeProvider()">{{ name }}</option>
+          }
+        </select>
+        @if (judgeProvider() !== SAME) {
+          <input aria-label="Modèle du juge" [value]="judgeModel()" (input)="judgeModel.set($any($event.target).value)" placeholder="modèle par défaut" />
+        }
+      </fieldset>
+      <label class="switch">
+        <input type="checkbox" role="switch" [checked]="withGeneration()" (change)="withGeneration.set($any($event.target).checked)" />
+        <span class="switch__track" aria-hidden="true"></span>
+        Évaluer aussi les réponses
+      </label>
+      @if (runner.running()) {
+        <button type="button" class="btn btn--danger" (click)="runner.cancel()">Annuler</button>
+      } @else {
+        <button type="submit" class="btn btn--primary">Lancer</button>
+      }
+    </form>
+    <p class="hint">
+      @if (withGeneration()) {
+        Trois appels au modèle par question (réponse RAG, juge, modèle seul), température 0 : compter 15 à 30 minutes
+        en local. Un juge distinct du modèle qui répond donne une notation plus fiable.
+      } @else {
+        Recherche seule : environ une minute, aucun appel au modèle de génération.
+      }
+    </p>
+
+    @if (runner.progress(); as p) {
+      <div class="progress" role="status">
+        <div class="progress__bar"><span [style.width.%]="(p.done / p.total) * 100"></span></div>
+        <span>{{ p.step }}</span>
+      </div>
+    }
+    @if (runner.error(); as e) {
+      <div class="alert" role="alert"><strong>échec</strong> {{ e }}</div>
+    }
+  </section>
+
+  @if (listError(); as e) {
+    <div class="alert" role="alert">
+      <strong>{{ e.error }}</strong> {{ e.message }}
+      <button type="button" class="link" (click)="refresh()">Réessayer</button>
+    </div>
+  }
+
+  @if (selected(); as report) {
+    <section class="card" aria-labelledby="summary-title">
+      <header class="card__header">
+        <div>
+          <h2 id="summary-title">{{ report.label }}</h2>
+          <p class="hint">
+            {{ formatDateTime(report.runAt) }} ·
+            <strong>index {{ report.retrieval.index.name ?? 'A' }}</strong>{{ report.retrieval.index.label ? ' (' + report.retrieval.index.label + ')' : '' }} ·
+            top {{ report.topK }} ·
+            {{ report.scope === 'COLLECTION' ? 'par collection' : 'tous les documents' }} ·
+            {{ report.retrieval.index.documents }} documents, {{ formatCount(report.retrieval.index.chunks) }} chunks ·
+            {{ report.retrieval.index.embeddingModel }}, {{ report.retrieval.index.chunker }},
+            section {{ report.retrieval.index.sectionInEmbedding ? 'dans' : 'hors' }} embedding
+            @if (report.generation) {
+              · réponses : {{ modelLabel(report.generationModel) }} · juge : {{ modelLabel(report.judgeModel) }}
+            }
+          </p>
+        </div>
+        <div class="field field--compare">
+          <label for="baseline">Comparer à</label>
+          <!-- [selected] sur chaque option, pas [value] sur le select : la valeur serait appliquee
+               avant que les options existent, et le select afficherait la premiere. -->
+          <select id="baseline" (change)="baselineId.set($any($event.target).value)">
+            <option value="" [selected]="!baselineId()">Aucune comparaison</option>
+            @for (r of reports(); track r.id) {
+              @if (r.id !== report.id) {
+                <option [value]="r.id" [selected]="r.id === baselineId()">{{ r.label }} ({{ formatDateTime(r.runAt) }})</option>
+              }
+            }
+          </select>
+        </div>
+      </header>
+
+      <ul class="summary">
+        @for (line of summary(); track $index) {
+          <li>{{ line }}</li>
+        }
+      </ul>
+
+      <h3 class="group-title">Recherche <span class="hint">— {{ report.retrieval.metrics.evaluated }} questions avec réponse</span></h3>
+      <div class="kpis">
+        @for (kpi of retrievalKpis(); track kpi.label) {
+          <div class="kpi" [title]="kpi.help">
+            <span class="kpi__label">{{ kpi.label }}</span>
+            <span class="kpi__value">{{ pct(kpi.value) }}</span>
+            @if (delta(kpi); as d) {
+              <span class="kpi__sub" [class]="deltaClass(kpi)">{{ d }} vs comparaison</span>
+            }
+          </div>
+        }
+      </div>
+
+      @if (report.generation; as gen) {
+        <h3 class="group-title">Réponses <span class="hint">— notées par règle (faits attendus) et par un LLM juge</span></h3>
+        <div class="kpis">
+          @for (kpi of generationKpis(); track kpi.label) {
+            <div class="kpi" [title]="kpi.help">
+              <span class="kpi__label">{{ kpi.label }}</span>
+              <span class="kpi__value">{{ pct(kpi.value) }}</span>
+              @if (delta(kpi); as d) {
+                <span class="kpi__sub" [class]="deltaClass(kpi)">{{ d }} vs comparaison</span>
+              }
+            </div>
+          }
+          <div class="kpi" title="Tokens d'entrée moyens par question, comptés par le fournisseur">
+            <span class="kpi__label">Tokens d'entrée — RAG / seul</span>
+            <span class="kpi__value">{{ formatCount(round(gen.metrics.ragMeanInputTokens)) }} / {{ formatCount(round(gen.metrics.llmMeanInputTokens)) }}</span>
+            <span class="kpi__sub">coût total {{ formatCost(gen.metrics.ragCost, gen.metrics.currency) }} / {{ formatCost(gen.metrics.llmCost, gen.metrics.currency) }}</span>
+          </div>
+        </div>
+      } @else {
+        <p class="hint">Recherche seule : les réponses n'ont pas été évaluées pour cette exécution.</p>
+      }
+
+      <details class="guide">
+        <summary>Comment lire ces chiffres</summary>
+        <ul>
+          <li><strong>Recherche</strong> : pour chaque question, on connaît la page qui contient la réponse. On regarde si cette page fait partie des extraits envoyés au modèle. Si ce n'est pas le cas, le modèle ne peut pas bien répondre.</li>
+          <li><strong>Faits exacts</strong> : la réponse contient-elle « 45 jours », « 2 Go »… ? Vérifié par une règle, sans LLM.</li>
+          <li><strong>Fidélité</strong> : un LLM juge relit les extraits et la réponse, et signale toute information inventée.</li>
+          <li><strong>Abstention</strong> : sur une question dont la réponse n'est nulle part, le bon comportement est de dire « je ne sais pas ».</li>
+          <li>Les documents de test 10 à 19 sont <strong>fictifs</strong> : le modèle seul ne peut pas connaître leurs réponses. C'est voulu : l'écart RAG / modèle seul mesure l'apport des documents.</li>
+        </ul>
+      </details>
+    </section>
+
+    <section class="card" aria-labelledby="cases-title">
+      <h2 id="cases-title">Détail par question</h2>
+      <app-rag-eval-cases [report]="report" />
+    </section>
+  }
+
+  <section class="card" aria-labelledby="history-title">
+    <h2 id="history-title">Historique</h2>
+    @if (reports().length === 0) {
+      <p class="hint">Aucune exécution enregistrée.</p>
+    } @else {
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Exécution</th>
+              <th>Index</th>
+              <th>Date</th>
+              <th class="num">En tête</th>
+              <th class="num">Top K</th>
+              <th class="num">Bon document</th>
+              <th class="num">Faits RAG</th>
+              <th class="num">Faits seul</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (r of reports(); track r.id) {
+              <tr [class.current]="r.id === selected()?.id">
+                <td>{{ r.label }}</td>
+                <td>{{ r.index?.name ?? 'A' }}</td>
+                <td>{{ formatDateTime(r.runAt) }}</td>
+                <td class="num">{{ pct(r.retrieval?.recallAt1) }}</td>
+                <td class="num">{{ pct(r.retrieval?.recallAtK) }}</td>
+                <td class="num">{{ pct(r.retrieval?.documentPrecision) }}</td>
+                <td class="num">{{ pct(r.generation?.ragAccuracy) }}</td>
+                <td class="num">{{ pct(r.generation?.llmAccuracy) }}</td>
+                <td><button type="button" class="link" (click)="open(r.id)" [disabled]="r.id === selected()?.id">Voir</button></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+</div>

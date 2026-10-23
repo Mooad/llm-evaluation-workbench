@@ -1,0 +1,102 @@
+<div class="toolbar" role="group" aria-label="Filtrer les questions">
+  <button type="button" class="chip" [class.chip--on]="filter() === 'all'" (click)="filter.set('all')">Toutes</button>
+  <button type="button" class="chip" [class.chip--on]="filter() === 'problems'" (click)="filter.set('problems')">À regarder</button>
+  <span class="hint">{{ rows().length }} questions</span>
+</div>
+
+<ul class="cases">
+  @for (row of rows(); track row.retrieval.id) {
+    <li class="case">
+      <details>
+        <summary>
+          <span class="case__question">
+            <span class="badge">{{ row.retrieval.category }}</span>
+            {{ row.retrieval.question }}
+          </span>
+          <span class="case__marks">
+            <span [class]="rankClass(row.retrieval)" title="Position de la bonne page parmi les extraits">{{ rankLabel(row.retrieval) }}</span>
+            @if (row.generation?.rag; as rag) {
+              @if (row.retrieval.abstain) {
+                <span class="mark" [class.mark--ok]="rag.judge?.abstention" [class.mark--ko]="rag.judge && !rag.judge.abstention" title="Le RAG dit-il ne pas savoir ?">
+                  RAG {{ rag.judge ? (rag.judge.abstention ? 's’abstient' : 'répond quand même') : '?' }}
+                </span>
+              } @else {
+                <span class="mark" [class.mark--ok]="!rag.error && rag.factsMissing.length === 0" [class.mark--ko]="rag.error || rag.factsMissing.length > 0" title="Faits attendus dans la réponse avec RAG">
+                  RAG {{ rag.factsFound.length }}/{{ row.retrieval.facts.length }}
+                </span>
+              }
+              @if (rag.judge?.fidele === false) {
+                <span class="mark mark--ko" title="Le juge a trouvé une information absente des extraits">invente</span>
+              }
+            }
+            @if (row.generation?.llm; as llm) {
+              @if (!row.retrieval.abstain) {
+                <span class="mark" [class.mark--ok]="!llm.error && llm.factsMissing.length === 0" title="Faits attendus dans la réponse du modèle seul">
+                  seul {{ llm.factsFound.length }}/{{ row.retrieval.facts.length }}
+                </span>
+              }
+            }
+          </span>
+        </summary>
+
+        <div class="case__body">
+          <p class="hint">
+            @if (row.retrieval.document) {
+              Attendu : {{ row.retrieval.document }}, p. {{ row.retrieval.pages.join(', ') }}
+            }
+            @if (row.retrieval.facts.length > 0) {
+              · faits : <span class="mono">{{ row.retrieval.facts.join(' ; ') }}</span>
+            }
+          </p>
+
+          @if (row.generation; as g) {
+            <div class="answers">
+              @if (g.rag; as rag) {
+                <div class="answer">
+                  <h4>Avec RAG</h4>
+                  @if (rag.error) {
+                    <p class="alert"><strong>erreur</strong> {{ rag.error }}</p>
+                  } @else {
+                    <p class="answer__text">{{ rag.answer }}</p>
+                    @if (rag.factsMissing.length > 0) {
+                      <p class="hint">Manquant : <span class="mono">{{ rag.factsMissing.join(' ; ') }}</span></p>
+                    }
+                    @if (rag.judge; as j) {
+                      <p class="hint">Juge : {{ j.fidele ? 'fidèle' : 'invente' }}{{ j.abstention ? ', s’abstient' : '' }} — {{ j.justification }}</p>
+                    }
+                  }
+                </div>
+              }
+              @if (g.llm; as llm) {
+                <div class="answer">
+                  <h4>Modèle seul</h4>
+                  @if (llm.error) {
+                    <p class="alert"><strong>erreur</strong> {{ llm.error }}</p>
+                  } @else {
+                    <p class="answer__text">{{ llm.answer }}</p>
+                    @if (llm.factsMissing.length > 0 && !row.retrieval.abstain) {
+                      <p class="hint">Manquant : <span class="mono">{{ llm.factsMissing.join(' ; ') }}</span></p>
+                    }
+                  }
+                </div>
+              }
+            </div>
+          }
+
+          <h4>Extraits retrouvés</h4>
+          <ol class="hits">
+            @for (hit of row.retrieval.hits; track $index) {
+              <li [class.hit--expected]="isExpected(hit, row.retrieval)">
+                <span class="mono">{{ hit.score.toFixed(2) }}</span>
+                {{ hit.fileName }}, {{ locationLabel(hit.location) }}
+                @if (hit.section) {
+                  <span class="hint">— {{ hit.section }}</span>
+                }
+              </li>
+            }
+          </ol>
+        </div>
+      </details>
+    </li>
+  }
+</ul>

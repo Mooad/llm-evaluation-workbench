@@ -1,0 +1,282 @@
+<div class="layout">
+  <section class="card chat" aria-labelledby="chat-title">
+    <header class="chat__header">
+      <div>
+        <h2 id="chat-title">Conversation</h2>
+        <p class="hint">Le Gateway est sans mémoire : tout l'historique est renvoyé à chaque message.</p>
+      </div>
+      <button type="button" class="btn btn--ghost" (click)="newConversation()" [disabled]="turns().length === 0">
+        Nouvelle conversation
+      </button>
+    </header>
+
+    <div class="transcript" #transcript (scroll)="onScroll(transcript)">
+      @if (turns().length === 0) {
+        <div class="empty">
+          <p class="empty__title">Teste le streaming du Gateway</p>
+          <p class="hint">
+            Les fragments s'affichent dès leur arrivée ; tokens, latences et coût apparaissent à la fin.
+          </p>
+          <div class="examples">
+            @for (example of examples; track example) {
+              <button type="button" class="example" (click)="send(example)">{{ example }}</button>
+            }
+          </div>
+        </div>
+      }
+
+      @for (turn of turns(); track turn.id) {
+        <article class="turn" [class.turn--user]="turn.role === 'user'">
+          <div class="turn__role">
+            {{ turn.role === 'user' ? 'Vous' : (turn.summary?.provider ?? 'Assistant') }}
+          </div>
+          @if (turn.content || turn.status === 'streaming') {
+            <div class="turn__content">
+              {{ turn.content }}@if (turn.status === 'streaming') {<span class="caret" aria-hidden="true"></span>}
+            </div>
+          }
+
+          @if (turn.summary; as s) {
+            <div class="turn__meta">
+              <span>{{ s.model }}</span>
+              <span>{{ formatCount(s.outputTokens) }} tokens</span>
+              <span>{{ formatMs(s.latencyMs) }}</span>
+              <span>{{ formatCost(s.estimatedCost, s.currency) }}</span>
+              @if (s.fallbackUsed) {
+                <span class="badge badge--warning">repli depuis {{ s.requestedProvider }}</span>
+              }
+              @if (s.finishReason !== 'COMPLETE') {
+                <span class="badge badge--warning" [title]="'Valeur brute : ' + s.providerFinishReason">
+                  {{ s.finishReason }}
+                </span>
+              }
+            </div>
+          }
+          @if (turn.status === 'stopped') {
+            <div class="turn__meta"><span class="badge">arrêté — réponse incomplète</span></div>
+          }
+          @if (turn.error; as e) {
+            <div class="alert" role="alert">
+              <strong>{{ e.error }}</strong> {{ e.message }}
+            </div>
+          }
+        </article>
+      }
+    </div>
+
+    <form class="composer" (submit)="$event.preventDefault(); send()">
+      <label class="sr-only" for="prompt">Message</label>
+      <textarea
+        id="prompt"
+        rows="3"
+        [value]="draft()"
+        (input)="draft.set($any($event.target).value)"
+        (keydown)="onComposerKey($event)"
+        placeholder="Ton message… Entrée pour envoyer, Maj+Entrée pour aller à la ligne"
+      ></textarea>
+      @if (streaming()) {
+        <button type="button" class="btn btn--danger" (click)="stop()">Arrêter</button>
+      } @else {
+        <button type="submit" class="btn btn--primary" [disabled]="!draft().trim()">Envoyer</button>
+      }
+    </form>
+  </section>
+
+  <aside class="side">
+    <section class="card" aria-labelledby="settings-title">
+      <header class="card__header">
+        <div>
+          <h2 id="settings-title">Réglages de session</h2>
+          <p class="hint">Pour toutes les conversations de cet onglet. Vide = réglage global.</p>
+        </div>
+        <button
+          type="button"
+          class="link"
+          (click)="session.reset()"
+          [disabled]="!session.customized()"
+          title="Revenir aux réglages globaux"
+        >
+          Réinitialiser
+        </button>
+      </header>
+
+      <div class="field">
+        <label for="provider">Fournisseur</label>
+        <select id="provider" [value]="session.provider()" (change)="session.provider.set($any($event.target).value)">
+          <option value="">Défaut du Gateway{{ config.providers() ? ' (' + config.providers()!.default + ')' : '' }}</option>
+          @for (name of config.providers()?.available ?? []; track name) {
+            <option [value]="name">{{ name }}</option>
+          }
+        </select>
+      </div>
+      <div class="field">
+        <label for="model">Modèle</label>
+        <input
+          id="model"
+          [value]="session.model()"
+          (input)="session.model.set($any($event.target).value)"
+          placeholder="défaut du fournisseur"
+        />
+      </div>
+      <div class="field">
+        <label for="reasoning">Raisonnement</label>
+        @if (globalDefaults()?.supportsReasoning) {
+          <select id="reasoning" [value]="session.reasoning()" (change)="setReasoning($any($event.target).value)">
+            <option value="">Global ({{ formatReasoning(globalDefaults()?.defaults?.reasoning) }})</option>
+            <option value="on">Activé</option>
+            <option value="off">Désactivé</option>
+          </select>
+        } @else {
+          <p class="static">Non géré par {{ targetProvider() || 'ce fournisseur' }}</p>
+        }
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="max-tokens">Max tokens</label>
+          <input
+            id="max-tokens"
+            type="number"
+            min="1"
+            step="1"
+            [value]="session.maxTokens()"
+            (input)="session.maxTokens.set($any($event.target).value)"
+            [placeholder]="fallbackHint(globalDefaults()?.defaults?.maxTokens)"
+          />
+        </div>
+        <div class="field">
+          <label for="temperature">Température</label>
+          <input
+            id="temperature"
+            type="number"
+            min="0"
+            max="2"
+            step="0.1"
+            [value]="session.temperature()"
+            (input)="session.temperature.set($any($event.target).value)"
+            [placeholder]="fallbackHint(globalDefaults()?.defaults?.temperature)"
+          />
+        </div>
+      </div>
+      <div class="field">
+        <label for="system">Prompt système</label>
+        <textarea
+          id="system"
+          rows="3"
+          [value]="session.systemPrompt()"
+          (input)="session.systemPrompt.set($any($event.target).value)"
+          placeholder="optionnel"
+        ></textarea>
+      </div>
+      <a class="link" routerLink="/configuration">Modifier les réglages globaux et voir les tarifs</a>
+    </section>
+
+    <section class="card" aria-labelledby="metrics-title">
+      <h2 id="metrics-title">Dernière réponse</h2>
+      @if (lastResponse(); as last) {
+        @if (last.summary; as s) {
+          <dl class="metrics">
+            <div>
+              <dt>Servi par</dt>
+              <dd>
+                {{ s.provider }}
+                @if (s.fallbackUsed) {
+                  <span class="badge badge--warning">repli</span>
+                }
+              </dd>
+            </div>
+            <div>
+              <dt>Modèle</dt>
+              <dd class="mono">{{ s.model }}</dd>
+            </div>
+            <div>
+              <dt title="Comptés par le tokenizer du fournisseur : ne pas comparer entre fournisseurs">
+                Tokens entrée / sortie
+              </dt>
+              <dd class="mono">{{ formatCount(s.inputTokens) }} / {{ formatCount(s.outputTokens) }}</dd>
+            </div>
+            <div>
+              <dt>Premier fragment</dt>
+              <dd class="mono">
+                {{ formatMs(s.firstTokenMs) }}
+                <small>Gateway</small> · {{ formatMs(last.browserFirstTokenMs) }}
+                <small>navigateur</small>
+              </dd>
+            </div>
+            <div>
+              <dt title="Appel au fournisseur qui a répondu, mesuré par le Gateway">Durée de l'appel</dt>
+              <dd class="mono">{{ formatMs(s.latencyMs) }}</dd>
+            </div>
+            <div>
+              <dt>Fin</dt>
+              <dd>
+                <span [class.badge--warning]="s.finishReason !== 'COMPLETE'" class="badge">
+                  {{ s.finishReason }}
+                </span>
+                <small class="mono">{{ s.providerFinishReason }}</small>
+              </dd>
+            </div>
+          </dl>
+
+          <dl class="metrics applied" aria-label="Réglages appliqués">
+            <div>
+              <dt>Raisonnement</dt>
+              <dd>
+                {{ formatReasoning(s.applied.reasoning.value) }}
+                <span class="origin">{{ originLabel(s.applied.reasoning.origin) }}</span>
+              </dd>
+            </div>
+            <div>
+              <dt>Max tokens</dt>
+              <dd>
+                <span class="mono">{{ s.applied.maxTokens.value ?? 'défaut' }}</span>
+                <span class="origin">{{ originLabel(s.applied.maxTokens.origin) }}</span>
+              </dd>
+            </div>
+            <div>
+              <dt>Température</dt>
+              <dd>
+                <span class="mono">{{ s.applied.temperature.value ?? 'défaut' }}</span>
+                <span class="origin">{{ originLabel(s.applied.temperature.origin) }}</span>
+              </dd>
+            </div>
+          </dl>
+
+          <div class="cost-block">
+            <span class="cost-block__label">Coût estimé</span>
+            <span class="cost mono">{{ formatCost(s.estimatedCost, s.currency) }}</span>
+            <small class="basis">{{ s.costBasis }}</small>
+          </div>
+        } @else if (last.error; as e) {
+          <div class="alert" role="alert"><strong>{{ e.error }}</strong> {{ e.message }}</div>
+        }
+      } @else {
+        <p class="hint">Aucune réponse pour l'instant.</p>
+      }
+    </section>
+
+    <section class="card" aria-labelledby="totals-title">
+      <h2 id="totals-title">Cumul de la conversation</h2>
+      <dl class="metrics">
+        <div>
+          <dt>Requêtes</dt>
+          <dd class="mono">{{ totals().requests }}</dd>
+        </div>
+        <div>
+          <dt>Coût cumulé</dt>
+          <dd>
+            <span class="mono">{{ formatCost(totals().cost, totals().currency) }}</span>
+            @if (totals().unknownCost > 0) {
+              <small>+ {{ totals().unknownCost }} à coût inconnu</small>
+            }
+          </dd>
+        </div>
+        <div>
+          <dt>Tokens entrée / sortie</dt>
+          <dd class="mono">
+            {{ formatCount(totals().inputTokens) }} / {{ formatCount(totals().outputTokens) }}
+          </dd>
+        </div>
+      </dl>
+    </section>
+  </aside>
+</div>

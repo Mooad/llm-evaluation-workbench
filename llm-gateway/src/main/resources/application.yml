@@ -1,0 +1,116 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: llm-gateway
+  config:
+    # Cles API locales, hors git. Absent = le Gateway demarre quand meme,
+    # et /providers/status signale la cle manquante.
+    import: optional:file:./application-secrets.yml
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    gateway.calls: INFO
+  # Les lignes gateway.calls sont la source de l'analyse de cout : elles doivent
+  # survivre a un redemarrage. Rotation Spring Boot : 10 Mo par fichier, 7 jours.
+  file:
+    name: logs/gateway.log
+
+# Toute la configuration fournisseur est ici. Changer de modele ou de fournisseur
+# ne demande aucune modification de code.
+gateway:
+  # Le local d'abord : gratuit. DeepSeek ne sert qu'en repli, ou sur demande explicite.
+  default-provider: ollama
+  # Ordre de repli : local d'abord (gratuit), puis DeepSeek, puis OpenAI.
+  fallback-order: [ollama, openai, deepseek]
+
+  providers:
+    ollama:
+      base-url: http://localhost:11434
+      default-model: qwen3-coder:30b
+      api-key: ""
+      timeout-seconds: 180
+
+    deepseek:
+      base-url: https://api.deepseek.com
+      default-model: deepseek-flash
+      # Jamais en clair ici : variable d'environnement, ou application-secrets.yml.
+      api-key: ${DEEPSEEK_API_KEY:}
+      timeout-seconds: 60
+
+    openai:
+      base-url: https://api.openai.com/v1
+      # Non raisonnant : accepte temperature 0 (evaluation, juge). Les gpt-5.x la refusent.
+      default-model: gpt-4.1-mini
+      api-key: ${OPENAI_API_KEY:}
+      timeout-seconds: 60
+
+  # Retry et circuit breaker, par fournisseur (strategie : docs/fallback-strategy.md).
+  resilience:
+    max-attempts: 2          # 1 retry, sur panne passagere seulement (429, 5xx, connexion)
+    backoff-ms: 300          # 300 ms, puis 600, 1200...
+    failure-threshold: 3     # pannes passageres consecutives avant d'ouvrir le circuit
+    open-seconds: 30         # fournisseur ecarte, puis un appel d'essai
+
+  # Defauts globaux par fournisseur (raisonnement, max tokens, temperature), appliques
+  # quand la requete ne les precise pas. Modifiables depuis le portail (PUT /settings/...).
+  settings:
+    file: settings/defaults.json
+
+  # Evaluation : POST /eval/run
+  eval:
+    dataset-path: classpath:evaluation/dataset.json
+    reports-dir: eval-reports
+    # Datasets importes depuis le portail (un fichier JSON par dataset).
+    datasets-dir: datasets
+    # Baisse de taux de reussite (points) a partir de laquelle une dimension est en regression.
+    regression-threshold-points: 5
+    # References du test de non-regression (scripts/eval-gate.sh), versionnees dans git.
+    baselines-dir: eval-baselines
+    # Vide = le juge est le candidat lui-meme (biais signale dans le rapport).
+    judge-provider: ""
+    judge-model: ""
+
+  # Tarifs par modele, pour un million de tokens. Un modele absent de cette table
+  # est marque "cout inconnu", jamais facture a zero.
+  # La cle est le nom de modele RENVOYE par le fournisseur, pas celui demande.
+  pricing:
+    currency: USD
+    models:
+      # Modele local : aucun cout a l'appel.
+      "[qwen3-coder:30b]":
+        input-per-1m: 0
+        output-per-1m: 0
+      # api-docs.deepseek.com/quick_start/pricing, releve le 2026-09-28.
+      # Tarif heure pleine et entree hors cache : borne haute. Heures creuses = moitie,
+      # entree en cache ~50x moins cher — le Gateway ne distingue pas encore les deux.
+      "[deepseek-flash]":
+        input-per-1m: 0.30
+        output-per-1m: 1.20
+      "[deepseek-v4-pro]":
+        input-per-1m: 1.32
+        output-per-1m: 3.96
+      # developers.openai.com/api/docs/pricing, releve le 2026-10-13 (tarif standard).
+      # Les versions datees renvoyees (gpt-4.1-mini-2025-04-14) prennent le tarif de leur famille.
+      "[gpt-4.1-mini]":
+        input-per-1m: 0.40
+        output-per-1m: 1.60
+      "[gpt-4.1-nano]":
+        input-per-1m: 0.10
+        output-per-1m: 0.40
+      "[gpt-4.1]":
+        input-per-1m: 2.00
+        output-per-1m: 8.00
+      "[gpt-4o-mini]":
+        input-per-1m: 0.15
+        output-per-1m: 0.60
+      "[gpt-5.4-mini]":
+        input-per-1m: 0.75
+        output-per-1m: 4.50

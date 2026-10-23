@@ -1,0 +1,72 @@
+server:
+  # 8081 = Gateway.
+  port: 8082
+
+spring:
+  application:
+    name: llm-rag
+  servlet:
+    multipart:
+      # 1 Mo par defaut : trop peu pour une notice (celle de data/ fait 9 Mo).
+      max-file-size: 50MB
+      max-request-size: 50MB
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+rag:
+  # Une strategie de decoupage par index, chacune dans sa collection : les memes documents sont
+  # indexes dans les deux, pour comparer les strategies a donnees egales (Evaluation RAG).
+  # Le premier index est celui par defaut. Ajouter un index = un bloc ici, puis le reconstruire.
+  indexes:
+    - name: A
+      label: Tokens 400/80
+      # Collection historique : les documents indexes avant les index multiples y sont deja.
+      collection: llm-rag-chunks
+      strategy: token
+      # ~400 tokens = une demi-page de notice : assez pour une reponse complete, assez court pour
+      # que l'embedding reste centre sur un sujet. 20 % de chevauchement : une phrase coupee a la
+      # frontiere se retrouve entiere dans l'un des deux chunks.
+      chunk-size: 400
+      overlap: 80
+    - name: B
+      label: Par section
+      collection: llm-rag-chunks-section
+      strategy: section
+      # Plafond d'un chunk : une section plus longue est coupee en debut de page.
+      chunk-size: 800
+      overlap: 0
+
+  qdrant:
+    host: localhost
+    port: 6334             # gRPC (6333 = HTTP / tableau de bord)
+    # Devant le nom de chaque collection ; ex. RAG_QDRANT_COLLECTION_PREFIX=eval- pour une instance d'evaluation.
+    collection-prefix: ""
+
+  embedding:
+    base-url: http://localhost:11434
+    # Multilingue (FR/AR), 1024 dimensions, 8192 tokens de contexte.
+    model: bge-m3
+    timeout-seconds: 120
+    # Titre de section devant le texte vectorise. Mesure sur docs_rag (35 questions, top 5) :
+    # avec titre, Recall@5 100 % -> 96,9 % (titres de sommaire parfois vagues). La section reste
+    # stockee et sert au filtre et au prompt. Changer la valeur demande de reindexer (force=true).
+    section-in-embedding: false
+
+  ingestion:
+    threads: 2
+
+  registry:
+    # Catalogue des documents (statut par index, empreinte, collection), hors git. Les chunks sont dans Qdrant.
+    file: state/documents.json
+
+  storage:
+    # Fichiers importes, tels quels, hors git : necessaires pour reconstruire un index.
+    files-dir: state/files
+
+  evaluation:
+    dataset: evaluation/rag-dataset.json
+    reports-dir: eval-reports

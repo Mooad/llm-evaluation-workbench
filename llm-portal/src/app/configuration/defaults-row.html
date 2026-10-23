@@ -1,0 +1,68 @@
+<form class="row" (submit)="$event.preventDefault(); save()" [attr.aria-label]="'Défauts de ' + settings().provider">
+  <div class="row__name">
+    <span class="name">{{ settings().provider }}</span>
+    @if (dirty()) {
+      <span class="badge badge--warning">modifié</span>
+    }
+  </div>
+
+  <div class="field">
+    <label [for]="settings().provider + '-reasoning'">Raisonnement</label>
+    @if (settings().supportsReasoning) {
+      <select
+        [id]="settings().provider + '-reasoning'"
+        [value]="reasoning()"
+        (change)="edit('reasoning', $any($event.target).value)"
+      >
+        <option value="">Défaut fournisseur</option>
+        <option value="on">Activé</option>
+        <option value="off">Désactivé</option>
+      </select>
+    } @else {
+      <p class="static" [id]="settings().provider + '-reasoning'">Non géré</p>
+    }
+  </div>
+
+  <div class="field">
+    <label [for]="settings().provider + '-max-tokens'">Max tokens</label>
+    <input
+      [id]="settings().provider + '-max-tokens'"
+      type="number"
+      min="1"
+      step="1"
+      [value]="maxTokens()"
+      (input)="edit('maxTokens', $any($event.target).value)"
+      placeholder="défaut fournisseur"
+    />
+  </div>
+
+  <div class="field">
+    <label [for]="settings().provider + '-temperature'">Température</label>
+    <input
+      [id]="settings().provider + '-temperature'"
+      type="number"
+      min="0"
+      max="2"
+      step="0.1"
+      [value]="temperature()"
+      (input)="edit('temperature', $any($event.target).value)"
+      placeholder="défaut fournisseur"
+    />
+  </div>
+
+  <div class="row__action">
+    <button type="submit" class="btn btn--primary" [disabled]="!dirty() || state() === 'saving'">
+      {{ state() === 'saving' ? 'Enregistrement…' : 'Enregistrer' }}
+    </button>
+    <span class="status" role="status">
+      @switch (state()) {
+        @case ('saved') {
+          <span class="status--ok">Enregistré</span>
+        }
+        @case ('error') {
+          <span class="status--error">{{ message() }}</span>
+        }
+      }
+    </span>
+  </div>
+</form>

@@ -1,0 +1,34 @@
+<div class="page">
+  <header class="intro">
+    <h2>Évaluations</h2>
+    <p class="hint">
+      Un dataset rejoué sur un modèle donne un rapport. Deux rapports comparés donnent l'état de régression : taux de
+      réussite par dimension, cas qui ont basculé, coût et latence — sur les cas communs uniquement.
+    </p>
+  </header>
+
+  <app-run-launcher (finished)="onRunFinished($event)" />
+
+  @if (baseId() && candId()) {
+    <app-regression-view
+      [baselineId]="baseId()!"
+      [candidateId]="candId()!"
+      (swap)="swap()"
+      (openReport)="open($event)"
+      (closed)="close()"
+    />
+  } @else if (reportId()) {
+    <app-report-detail
+      [reportId]="reportId()!"
+      [previousId]="previousOfOpen()"
+      (compareWith)="compare($event)"
+      (deleted)="onDeleted()"
+      (closed)="close()"
+    />
+  }
+
+  @if (loadError(); as e) {
+    <div class="alert" role="alert"><strong>gateway_unreachable</strong> {{ e }}</div>
+  }
+  <app-report-history [reports]="reports()" [active]="reportId()" (open)="open($event)" (compare)="compare($event)" />
+</div>

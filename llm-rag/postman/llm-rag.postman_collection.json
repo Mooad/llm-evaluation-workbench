@@ -1,0 +1,718 @@
+{
+  "info": {
+    "name": "LLM RAG",
+    "description": "Ingestion et recherche. Demarrer Qdrant, Ollama (bge-m3) et l'app (port 8082) avant de lancer.\nRun collection : chaque requete verifie son code HTTP attendu.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "0 - Sante",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/actuator/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "actuator",
+                "health"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"UP\", () => pm.expect(pm.response.json().status).to.eql(\"UP\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1 - Documents",
+      "item": [
+        {
+          "name": "Importer la notice (PDF)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/documents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "documents"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "data/notice-sandero-jogger-fr.pdf"
+                },
+                {
+                  "key": "collection",
+                  "value": "notices",
+                  "type": "text"
+                }
+              ]
+            },
+            "description": "202 au premier import (ingestion lancee), 200 + alreadyKnown si le meme contenu est deja indexe.\nLe chemin du fichier est relatif au dossier de travail Postman : le regler sur llm-rag/ (ou choisir le fichier a la main)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 202 ou 200\", () => pm.expect(pm.response.code).to.be.oneOf([200, 202]));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"documentId present\", () => pm.expect(body.documentId).to.be.a(\"string\").and.not.empty);",
+                  "pm.test(\"202 = PROCESSING, 200 = deja connu\", () => pm.expect(body.alreadyKnown).to.eql(pm.response.code === 200));",
+                  "pm.collectionVariables.set(\"documentId\", body.documentId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Importer un format non gere",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/documents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "documents"
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "README.md"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 415\", () => pm.response.to.have.status(415));",
+                  "pm.test(\"unsupported_document\", () => pm.expect(pm.response.json().error).to.eql(\"unsupported_document\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Lister les documents",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/documents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "documents"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"tableau\", () => pm.expect(pm.response.json()).to.be.an(\"array\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Statut d'un document",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/documents/{{documentId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "documents",
+                "{{documentId}}"
+              ]
+            },
+            "description": "PROCESSING tant que l'ingestion tourne (~50 s pour la notice), puis READY ou FAILED."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 200\", () => pm.response.to.have.status(200));",
+                  "const doc = pm.response.json();",
+                  "pm.test(\"un etat par index\", () => { pm.expect(doc.indexes).to.have.property(\"A\"); pm.expect(doc.indexes).to.have.property(\"B\"); });",
+                  "pm.test(\"statut d ensemble connu\", () => pm.expect(doc.status).to.be.oneOf([\"PROCESSING\", \"READY\", \"FAILED\"]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Statut d'un document inconnu",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/documents/inconnu",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "documents",
+                "inconnu"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"document_not_found\", () => pm.expect(pm.response.json().error).to.eql(\"document_not_found\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Supprimer un document inconnu",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/documents/inconnu",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "documents",
+                "inconnu"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2 - Recherche",
+      "item": [
+        {
+          "name": "Pression des pneus",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/search",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"Quelle est la pression des pneus ?\",\n  \"documentIds\": [\n    \"{{documentId}}\"\n  ],\n  \"topK\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Document READY requis. Renvoie les chunks les plus proches, du plus au moins similaire."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 200\", () => pm.response.to.have.status(200));",
+                  "const hits = pm.response.json().results;",
+                  "pm.test(\"localisation et citation sur chaque chunk\", () => hits.forEach(h => { pm.expect(h.location.type).to.eql(\"page\"); pm.expect(h.location.page).to.be.above(0); pm.expect(h.citation).to.include(\"page\"); pm.expect(h.score).to.be.a(\"number\"); }));",
+                  "pm.test(\"5 resultats\", () => pm.expect(hits).to.have.lengthOf(5));",
+                  "pm.test(\"tries par score decroissant\", () => hits.forEach((h, i) => i === 0 || pm.expect(h.score).to.be.at.most(hits[i - 1].score)));",
+                  "pm.test(\"premier chunk sur la pression\", () => pm.expect(hits[0].content.toLowerCase()).to.include(\"pression\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Recherche sans question",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/search",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"invalid_request\", () => pm.expect(pm.response.json().error).to.eql(\"invalid_request\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pression des pneus, collection notices",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/search",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"Quelle est la pression des pneus ?\",\n  \"collections\": [\n    \"notices\"\n  ],\n  \"topK\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Filtre par collection, applique par Qdrant : aucun extrait d'un document hors de la collection."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 200\", () => pm.response.to.have.status(200));",
+                  "const hits = pm.response.json().results;",
+                  "pm.test(\"tous les extraits viennent du document de la collection\", () => hits.forEach(h => pm.expect(h.documentId).to.eql(pm.collectionVariables.get(\"documentId\"))));",
+                  "pm.test(\"chaque extrait porte sa section (ou null)\", () => hits.forEach(h => pm.expect(h).to.have.property(\"section\")));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pression des pneus, index B (par section)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/search",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"Quelle est la pression des pneus ?\",\n  \"index\": \"B\",\n  \"topK\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"des extraits\", () => pm.expect(pm.response.json().results).to.not.be.empty);",
+                  "pm.test(\"localisation page ou plage de pages\", () => pm.response.json().results.forEach(h => pm.expect(h.location.type).to.be.oneOf([\"page\", \"pageRange\"])));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Index inconnu",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/search",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"query\": \"x\", \"index\": \"Z\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"unknown_index\", () => pm.expect(pm.response.json().error).to.eql(\"unknown_index\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4 - Index",
+      "item": [
+        {
+          "name": "Lister les index",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/indexes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "indexes"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 200\", () => pm.response.to.have.status(200));",
+                  "const indexes = pm.response.json();",
+                  "pm.test(\"A et B\", () => pm.expect(indexes.map(i => i.name)).to.include.members([\"A\", \"B\"]));",
+                  "pm.test(\"un seul index par defaut\", () => pm.expect(indexes.filter(i => i.isDefault)).to.have.lengthOf(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reconstruire l'index B",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/indexes/B/rebuild",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "indexes",
+                "B",
+                "rebuild"
+              ]
+            },
+            "description": "Reindexe tous les documents dans B a partir des fichiers conserves. Environ une minute pour le corpus de test."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 202\", () => pm.response.to.have.status(202));",
+                  "pm.test(\"compte rendu\", () => pm.expect(pm.response.json()).to.have.property(\"scheduled\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3 - Evaluation",
+      "item": [
+        {
+          "name": "Jeu de questions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/evaluations/dataset",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "evaluations",
+                "dataset"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"des questions\", () => pm.expect(pm.response.json().cases).to.not.be.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mesurer la recherche",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/evaluations/retrieval?topK=5&scope=ALL",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "evaluations",
+                "retrieval"
+              ],
+              "query": [
+                {
+                  "key": "topK",
+                  "value": "5"
+                },
+                {
+                  "key": "scope",
+                  "value": "ALL"
+                }
+              ]
+            },
+            "description": "Une recherche par question, sans LLM (environ 1 s chacune). Les questions dont le document n'est pas indexe sont ecartees (DOCUMENT_ABSENT)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 200\", () => pm.response.to.have.status(200));",
+                  "const m = pm.response.json().metrics;",
+                  "pm.test(\"metriques presentes\", () => { pm.expect(m).to.have.property(\"recallAt1\"); pm.expect(m).to.have.property(\"recallAtK\"); });",
+                  "pm.test(\"des questions evaluees ou ecartees\", () => pm.expect(m.evaluated + m.skipped).to.be.above(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Portee invalide",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/evaluations/retrieval?scope=PARTOUT",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "evaluations",
+                "retrieval"
+              ],
+              "query": [
+                {
+                  "key": "scope",
+                  "value": "PARTOUT"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Historique des rapports",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/evaluations/reports",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "evaluations",
+                "reports"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"tableau\", () => pm.expect(pm.response.json()).to.be.an(\"array\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Rapport inconnu",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/evaluations/reports/rag-inconnu",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "evaluations",
+                "reports",
+                "rag-inconnu"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8082"
+    },
+    {
+      "key": "documentId",
+      "value": ""
+    }
+  ]
+}

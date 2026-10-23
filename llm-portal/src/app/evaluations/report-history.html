@@ -1,0 +1,70 @@
+<section class="card history" aria-labelledby="history-title">
+  <header class="card__header">
+    <div>
+      <h2 id="history-title">Historique des exécutions</h2>
+      <p class="hint">Coche deux exécutions pour calculer la régression entre elles.</p>
+    </div>
+    <div class="tools">
+      @if (datasetIds().length > 1) {
+        <select aria-label="Filtrer par dataset" [value]="datasetFilter()" (change)="datasetFilter.set($any($event.target).value)">
+          <option value="">Tous les datasets</option>
+          @for (id of datasetIds(); track id) {
+            <option [value]="id">{{ id }}</option>
+          }
+        </select>
+      }
+      <button type="button" class="btn btn--primary" (click)="compareSelected()" [disabled]="selected().length !== 2">
+        Comparer{{ selected().length ? ' (' + selected().length + '/2)' : '' }}
+      </button>
+    </div>
+  </header>
+
+  @if (visible().length === 0) {
+    <p class="hint empty">Aucune exécution pour l'instant : lance une évaluation ci-dessus.</p>
+  } @else {
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th scope="col"><span class="sr-only">Sélection</span></th>
+            <th scope="col">Date</th>
+            <th scope="col">Dataset</th>
+            <th scope="col">Candidat</th>
+            <th scope="col">Juge</th>
+            <th scope="col" class="num">Correct.</th>
+            <th scope="col" class="num">Format</th>
+            <th scope="col" class="num">Halluc.</th>
+            <th scope="col" class="num">p50</th>
+            <th scope="col" class="num">Coût</th>
+            <th scope="col" class="num" title="Coût total / réponses justes">Coût / juste</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (r of visible(); track r.id) {
+            <tr [class.active]="r.id === active()" [class.picked]="selected().includes(r.id)" (click)="open.emit(r.id)">
+              <td (click)="$event.stopPropagation()">
+                <input type="checkbox" [checked]="selected().includes(r.id)" (change)="toggle(r.id)"
+                       [attr.aria-label]="'Sélectionner l\'exécution du ' + formatDateTime(r.startedAt)" />
+              </td>
+              <td class="mono">{{ formatDateTime(r.startedAt) }}</td>
+              <td>
+                {{ r.datasetId }}
+                @if (r.filtered) {
+                  <span class="badge" title="Une partie des cas seulement">partiel · {{ r.caseCount }}</span>
+                }
+              </td>
+              <td class="mono wrap">{{ r.candidate }}</td>
+              <td class="mono muted wrap">{{ r.judge === 'desactive' ? 'règles seules' : r.judge }}</td>
+              @for (d of dimensions; track d) {
+                <td class="num">{{ formatRate(rate(r, d)) }}</td>
+              }
+              <td class="num">{{ formatMs(r.latency?.p50Ms) }}</td>
+              <td class="num">{{ formatCost(r.totalCost, r.currency) }}</td>
+              <td class="num">{{ formatCost(r.costPerCorrect, r.currency) }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</section>

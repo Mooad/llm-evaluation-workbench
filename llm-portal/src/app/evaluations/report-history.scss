@@ -1,0 +1,64 @@
+.history {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+
+  select {
+    min-height: 40px;
+    padding: 0 var(--space-3);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    background: var(--surface);
+  }
+}
+
+.empty {
+  padding: var(--space-5) 0;
+  text-align: center;
+}
+
+tbody tr {
+  cursor: pointer;
+  transition: background-color var(--duration) ease-out;
+
+  &:hover {
+    background: var(--surface-muted);
+  }
+
+  &.picked {
+    background: var(--accent-soft);
+  }
+
+  &.active td:nth-child(2) {
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
+}
+
+input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.badge {
+  margin-left: var(--space-1);
+}
+
+// Noms de modele longs : sur deux lignes plutot qu'un tableau qui deborde.
+.data-table td.wrap {
+  min-width: 9rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: var(--text-xs);
+}

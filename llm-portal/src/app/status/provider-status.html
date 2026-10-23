@@ -1,0 +1,38 @@
+<div class="status" aria-label="Etat des fournisseurs">
+  @if (unreachable()) {
+    <span class="chip chip--down" role="status">Gateway injoignable</span>
+  }
+  @for (p of providers(); track p.provider) {
+    <span
+      class="chip"
+      [class]="'chip--' + p.status.toLowerCase()"
+      [title]="p.detail + (p.latencyMs !== null ? ' — sonde ' + formatMs(p.latencyMs) : '')"
+    >
+      <span class="dot" aria-hidden="true"></span>
+      <span class="name">{{ p.provider }}</span>
+      @if (p.provider === defaultProvider()) {
+        <span class="tag">défaut</span>
+      }
+      <span class="sr-only">: {{ p.status }}</span>
+    </span>
+  }
+  <button
+    type="button"
+    class="refresh"
+    (click)="refresh()"
+    [disabled]="loading()"
+    aria-label="Rafraîchir l'état des fournisseurs"
+    title="Rafraîchir"
+  >
+    <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" [class.spin]="loading()">
+      <path
+        d="M16.5 10a6.5 6.5 0 1 1-1.9-4.6M16.5 3.5v3.2h-3.2"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.6"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    </svg>
+  </button>
+</div>

@@ -1,0 +1,14 @@
+{
+  "providers" : {
+    "deepseek" : {
+      "reasoning" : true,
+      "maxTokens" : null,
+      "temperature" : 0.0
+    },
+    "ollama" : {
+      "reasoning" : null,
+      "maxTokens" : null,
+      "temperature" : 0.1
+    }
+  }
+}

@@ -1,0 +1,15 @@
+target/
+*.class
+*.jar
+.idea/
+*.iml
+.vscode/
+.DS_Store
+application-local.yml
+.env
+
+# Ne jamais commiter de secrets
+application-secrets.yml
+*.key
+eval-reports/
+logs/

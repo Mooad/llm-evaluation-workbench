@@ -1,0 +1,17 @@
+target/
+*.class
+*.jar
+.idea/
+*.iml
+.vscode/
+.DS_Store
+application-local.yml
+.env
+
+# Ne jamais commiter de secrets
+application-secrets.yml
+*.key
+logs/
+# Registre des documents de l'instance locale (rag.registry.file)
+state/
+eval-reports/

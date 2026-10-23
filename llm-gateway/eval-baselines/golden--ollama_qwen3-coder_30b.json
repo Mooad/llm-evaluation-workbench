@@ -1,0 +1,1180 @@
+{
+  "runId" : "e55c64c3",
+  "startedAt" : "2026-10-14T06:39:16.114567Z",
+  "durationMs" : 61069,
+  "candidate" : "ollama/qwen3-coder:30b",
+  "judge" : "desactive",
+  "dataset" : "classpath:evaluation/dataset.json",
+  "datasetHash" : "0561adafe750",
+  "settings" : {
+    "temperature" : 0.0,
+    "maxTokens" : 512,
+    "useJudge" : false,
+    "allowFallback" : false,
+    "filtered" : false
+  },
+  "caseCount" : 35,
+  "dimensions" : {
+    "CORRECTNESS" : {
+      "passed" : 19,
+      "failed" : 1,
+      "skipped" : 15,
+      "errors" : 0,
+      "passRate" : 0.95
+    },
+    "FORMAT" : {
+      "passed" : 27,
+      "failed" : 1,
+      "skipped" : 7,
+      "errors" : 0,
+      "passRate" : 0.964
+    },
+    "HALLUCINATION" : {
+      "passed" : 0,
+      "failed" : 0,
+      "skipped" : 35,
+      "errors" : 0,
+      "passRate" : null
+    }
+  },
+  "schemaConformity" : {
+    "ollama" : {
+      "cases" : 5,
+      "conform" : 5,
+      "rate" : 1.0
+    }
+  },
+  "latency" : {
+    "avgMs" : 1738,
+    "p50Ms" : 1049,
+    "maxMs" : 13122
+  },
+  "inputTokens" : 2620,
+  "outputTokens" : 1523,
+  "totalCost" : 0.0,
+  "costPerCorrect" : 0.0,
+  "currency" : "USD",
+  "warnings" : [ ],
+  "cases" : [ {
+    "id" : "fact_001",
+    "caseHash" : "dd0dde37b898",
+    "category" : "factual",
+    "prompt" : "What is the capital of Morocco?",
+    "answer" : "The capital of Morocco is Rabat.",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 13122,
+    "inputTokens" : 15,
+    "outputTokens" : 9,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : null,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "'Rabat' present dans la reponse"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "non evalue pour ce cas"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "necessite le juge LLM (desactive)"
+    } ],
+    "error" : null
+  }, {
+    "id" : "math_001",
+    "caseHash" : "8a6efa008c50",
+    "category" : "reasoning",
+    "prompt" : "A service processes 120 requests per minute. How many requests does it process in 15 minutes? Answer with only the number.",
+    "answer" : "1800",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 445,
+    "inputTokens" : 37,
+    "outputTokens" : 5,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : null,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "nombre attendu 1800 trouve"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "uniquement un nombre"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "non evalue pour ce cas"
+    } ],
+    "error" : null
+  }, {
+    "id" : "format_001",
+    "caseHash" : "441c8a91db2b",
+    "category" : "structured_output",
+    "prompt" : "Return a valid JSON object containing exactly these fields: name, age, city. Use the values: name=Sarah, age=29, city=Paris. Do not add any explanation.",
+    "answer" : "{\n  \"name\": \"Sarah\",\n  \"age\": 29,\n  \"city\": \"Paris\"\n}",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 905,
+    "inputTokens" : 47,
+    "outputTokens" : 25,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : null,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "toutes les valeurs attendues sont correctes"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "objet JSON avec exactement les champs attendus"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "necessite le juge LLM (desactive)"
+    } ],
+    "error" : null
+  }, {
+    "id" : "extract_001",
+    "caseHash" : "7472bf118dab",
+    "category" : "extraction",
+    "prompt" : "Extract the person's name and company from this text: 'Ahmed joined NovaTech in March 2024 as a backend engineer.' Return JSON with fields name and company only.",
+    "answer" : "```json\n{\n  \"name\": \"Ahmed\",\n  \"company\": \"NovaTech\"\n}\n```",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 809,
+    "inputTokens" : 46,
+    "outputTokens" : 23,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : null,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "toutes les valeurs attendues sont correctes"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "objet JSON avec exactement les champs attendus"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "necessite le juge LLM (desactive)"
+    } ],
+    "error" : null
+  }, {
+    "id" : "hallucination_001",
+    "caseHash" : "42da22fe9007",
+    "category" : "hallucination",
+    "prompt" : "Context: 'John works as a software engineer at Acme Corp and lives in Lyon.' Question: What is John's salary?",
+    "answer" : "I don't have any information about John's salary. The context only tells us that John works as a software engineer at Acme Corp and lives in Lyon, but it doesn't provide any details about his compensation or salary.",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 1477,
+    "inputTokens" : 34,
+    "outputTokens" : 46,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : null,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "necessite le juge LLM (desactive)"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "non evalue pour ce cas"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "necessite le juge LLM (desactive)"
+    } ],
+    "error" : null
+  }, {
+    "id" : "hallucination_002",
+    "caseHash" : "1de923a7cc61",
+    "category" : "hallucination",
+    "prompt" : "Context: 'The API supports GET /users and POST /users.' Does the API support DELETE /users? Answer only using the provided context.",
+    "answer" : "No, the API does not support DELETE /users.\n\nThe context only mentions that the API supports GET /users and POST /users, but does not include DELETE /users in the supported operations.",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 1342,
+    "inputTokens" : 37,
+    "outputTokens" : 40,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : null,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "necessite le juge LLM (desactive)"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "non evalue pour ce cas"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "necessite le juge LLM (desactive)"
+    } ],
+    "error" : null
+  }, {
+    "id" : "summary_001",
+    "caseHash" : "f8f238f63de8",
+    "category" : "summarization",
+    "prompt" : "Summarize the following text in one sentence: 'The application receives user requests through an API gateway. The gateway selects an LLM provider, sends the request, receives the response, and returns a normalized result to the client.'",
+    "answer" : "An API gateway handles user requests by selecting an LLM provider, routing requests between the client and LLM providers, and returning normalized responses to clients.",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 1023,
+    "inputTokens" : 54,
+    "outputTokens" : 31,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : null,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "necessite le juge LLM (desactive)"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "au plus 1 phrase(s)"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "necessite le juge LLM (desactive)"
+    } ],
+    "error" : null
+  }, {
+    "id" : "fr_001",
+    "caseHash" : "b994afd88343",
+    "category" : "multilingual",
+    "prompt" : "Réponds en français uniquement : explique en une phrase ce qu'est une API REST.",
+    "answer" : "Une API REST est un ensemble de règles et de conventions qui permet à des systèmes différents de communiquer entre eux via des requêtes HTTP, en utilisant des verbes comme GET, POST, PUT et DELETE pour manipuler des ressources accessibles via des URL.",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 1606,
+    "inputTokens" : 28,
+    "outputTokens" : 57,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : null,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "necessite le juge LLM (desactive)"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "au plus 1 phrase(s) (langue non verifiee, juge desactive)"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "necessite le juge LLM (desactive)"
+    } ],
+    "error" : null
+  }, {
+    "id" : "instruction_001",
+    "caseHash" : "00371579c4a7",
+    "category" : "instruction_following",
+    "prompt" : "List exactly 3 Java primitive types. Return them as a comma-separated list with no explanation.",
+    "answer" : "int, double, boolean",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 409,
+    "inputTokens" : 27,
+    "outputTokens" : 6,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : null,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "necessite le juge LLM (desactive)"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "3 elements separes par des virgules"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "non evalue pour ce cas"
+    } ],
+    "error" : null
+  }, {
+    "id" : "reasoning_002",
+    "caseHash" : "de6e83a353d0",
+    "category" : "reasoning",
+    "prompt" : "A server receives 1000 requests. 2% fail because of timeouts and 3% fail because of rate limits. Assume the two groups do not overlap. How many requests succeed? Answer with only the number.",
+    "answer" : "970",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 382,
+    "inputTokens" : 54,
+    "outputTokens" : 4,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : null,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "FAIL",
+      "method" : "regle",
+      "reason" : "attendu 950, nombres trouves : [970]"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "uniquement un nombre"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "non evalue pour ce cas"
+    } ],
+    "error" : null
+  }, {
+    "id" : "fact_002",
+    "caseHash" : "fd72448b8a42",
+    "category" : "factual",
+    "prompt" : "What is the capital of Mauritania?",
+    "answer" : "The capital of Mauritania is Nouakchott.",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 458,
+    "inputTokens" : 16,
+    "outputTokens" : 12,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : null,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "'Nouakchott' present dans la reponse"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "non evalue pour ce cas"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "necessite le juge LLM (desactive)"
+    } ],
+    "error" : null
+  }, {
+    "id" : "fact_003",
+    "caseHash" : "499b08a6bf09",
+    "category" : "factual",
+    "prompt" : "Which HTTP status code indicates that the requested resource was not found? Answer with only the number.",
+    "answer" : "404",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 361,
+    "inputTokens" : 27,
+    "outputTokens" : 4,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : null,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "nombre attendu 404 trouve"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "uniquement un nombre"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "non evalue pour ce cas"
+    } ],
+    "error" : null
+  }, {
+    "id" : "reasoning_003",
+    "caseHash" : "d0f0223cde93",
+    "category" : "reasoning",
+    "prompt" : "A 90-minute video is transcoded at 3x real-time speed, meaning 3 minutes of video are processed per minute of wall-clock time. How long does the transcoding take, in minutes? Answer with only the number.",
+    "answer" : "30",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 357,
+    "inputTokens" : 57,
+    "outputTokens" : 3,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : null,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "nombre attendu 30 trouve"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "uniquement un nombre"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "non evalue pour ce cas"
+    } ],
+    "error" : null
+  }, {
+    "id" : "reasoning_004",
+    "caseHash" : "b1b7156f9be5",
+    "category" : "reasoning",
+    "prompt" : "A queue holds 8,200 messages. Consumers remove 400 messages per minute while producers keep adding 150 messages per minute. How many minutes until the queue is empty? Answer with only the number.",
+    "answer" : "400 - 150 = 250 messages removed per minute\n\n8,200 ÷ 250 = 32.8\n\nSince we can't have a fraction of a minute in this context, and the queue must be completely empty, it will take 33 minutes for the queue to be empty.\n\n33",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 2025,
+    "inputTokens" : 55,
+    "outputTokens" : 75,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : null,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "nombre attendu 32.8 trouve"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "FAIL",
+      "method" : "regle",
+      "reason" : "la reponse doit etre uniquement le nombre, recu : '400 - 150 = 250 messages removed per minute 8,200 ÷ 250 =...'"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "non evalue pour ce cas"
+    } ],
+    "error" : null
+  }, {
+    "id" : "reasoning_005",
+    "caseHash" : "dc7221e5abaa",
+    "category" : "reasoning",
+    "prompt" : "A service has an availability SLA of 99.9% over a 30-day month. What is the maximum allowed downtime for that month, in minutes? Answer with only the number.",
+    "answer" : "43.2",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 380,
+    "inputTokens" : 49,
+    "outputTokens" : 5,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : null,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "nombre attendu 43.2 trouve"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "uniquement un nombre"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "non evalue pour ce cas"
+    } ],
+    "error" : null
+  }, {
+    "id" : "format_002",
+    "caseHash" : "962fcca3dece",
+    "category" : "structured_output",
+    "prompt" : "Return a valid JSON object containing exactly these fields: jobId (integer), status (string), retries (integer). Use the values: jobId=4412, status=FAILED, retries=3. Do not add any explanation.",
+    "answer" : "{\n  \"jobId\": 4412,\n  \"status\": \"FAILED\",\n  \"retries\": 3\n}",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 995,
+    "inputTokens" : 55,
+    "outputTokens" : 29,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : null,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "toutes les valeurs attendues sont correctes"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "objet JSON avec exactement les champs attendus"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "non evalue pour ce cas"
+    } ],
+    "error" : null
+  }, {
+    "id" : "format_003",
+    "caseHash" : "a2fade84862b",
+    "category" : "structured_output",
+    "prompt" : "Return a valid JSON object with exactly two fields: 'languages' (an array of strings) and 'count' (an integer). The available subtitle tracks are French, Arabic and English, in that order. Return only the JSON.",
+    "answer" : "{\n  \"languages\": [\"French\", \"Arabic\", \"English\"],\n  \"count\": 3\n}",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 836,
+    "inputTokens" : 55,
+    "outputTokens" : 24,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : null,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "toutes les valeurs attendues sont correctes"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "objet JSON avec exactement les champs attendus"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "non evalue pour ce cas"
+    } ],
+    "error" : null
+  }, {
+    "id" : "extract_002",
+    "caseHash" : "a7dd5e004665",
+    "category" : "extraction",
+    "prompt" : "Extract the service name and the error code from this log line: '2026-03-14T10:22:31Z ERROR [payment-service] code=E4012 Card declined by issuer'. Return JSON with fields service and code only.",
+    "answer" : "```json\n{\n  \"service\": \"payment-service\",\n  \"code\": \"E4012\"\n}\n```",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 925,
+    "inputTokens" : 67,
+    "outputTokens" : 26,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : null,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "toutes les valeurs attendues sont correctes"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "objet JSON avec exactement les champs attendus"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "necessite le juge LLM (desactive)"
+    } ],
+    "error" : null
+  }, {
+    "id" : "extract_003",
+    "caseHash" : "509cd3567f45",
+    "category" : "extraction",
+    "prompt" : "Extract the video properties from this sentence: 'The master file is encoded in H.265 at 3840x2160, without HDR.' Return JSON with exactly the fields codec (string, as written in the text), width (integer), height (integer) and hdr (boolean). No explanation.",
+    "answer" : "{\n  \"codec\": \"H.265\",\n  \"width\": 3840,\n  \"height\": 2160,\n  \"hdr\": false\n}",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 1493,
+    "inputTokens" : 75,
+    "outputTokens" : 40,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : null,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "toutes les valeurs attendues sont correctes"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "objet JSON avec exactement les champs attendus"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "necessite le juge LLM (desactive)"
+    } ],
+    "error" : null
+  }, {
+    "id" : "extract_004",
+    "caseHash" : "f4cb4cab4e51",
+    "category" : "extraction",
+    "prompt" : "Extrais le numéro de facture et le montant de cette phrase : 'La facture n°2291 du 12 mars 2025 s'élève à 1 450 euros.' Retourne un JSON avec uniquement les champs invoice_number (entier) et amount (entier), sans explication.",
+    "answer" : "{\n  \"invoice_number\": 2291,\n  \"amount\": 1450\n}",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 917,
+    "inputTokens" : 82,
+    "outputTokens" : 24,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : null,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "toutes les valeurs attendues sont correctes"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "objet JSON avec exactement les champs attendus"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "necessite le juge LLM (desactive)"
+    } ],
+    "error" : null
+  }, {
+    "id" : "hallucination_003",
+    "caseHash" : "4bb6df0d40b1",
+    "category" : "hallucination",
+    "prompt" : "Context: 'The transcoding service was deployed on 3 March 2025. It runs on Kubernetes and reads jobs from an SQS queue.' Question: Which version of FFmpeg does the transcoding service use?",
+    "answer" : "Based on the provided context, I cannot determine which version of FFmpeg the transcoding service uses.\n\nThe context only tells us that:\n- The transcoding service was deployed on 3 March 2025\n- It runs on Kubernetes \n- It reads jobs from an SQS queue\n\nNo information is given about the specific FFmpeg version used by this service. To answer this question, I would need additional information such as:\n- The Docker image or container configuration used\n- The service's configuration files\n- Documentation or deployment manifests\n- The specific implementation details of the transcoding service\n\nWithout this information, the FFmpeg version remains unknown.",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 3408,
+    "inputTokens" : 54,
+    "outputTokens" : 133,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : null,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "necessite le juge LLM (desactive)"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "non evalue pour ce cas"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "necessite le juge LLM (desactive)"
+    } ],
+    "error" : null
+  }, {
+    "id" : "hallucination_004",
+    "caseHash" : "7dea0af89143",
+    "category" : "hallucination",
+    "prompt" : "Why did Morocco win the 2022 FIFA World Cup?",
+    "answer" : "Morocco didn't win the 2022 FIFA World Cup. The tournament was won by Argentina, who defeated France 4-2 on penalties after a 3-3 draw in the final held in Qatar on December 18, 2022.\n\nMorocco did have an outstanding run in the 2022 World Cup, reaching the semifinals (where they lost to France) and becoming the first African team to reach a World Cup semifinal since 1990. They were led by players like Achraf Hakimi, Romain Saïss, and Karim Benzema, and their defensive solidity and tactical discipline were key factors in their success, but they fell short of winning the tournament.\n\nThe 2022 World Cup was notable for being held in Qatar, which was the first time the tournament was held in the Middle East, and for the controversy surrounding the host country's human rights record.",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 4835,
+    "inputTokens" : 22,
+    "outputTokens" : 194,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : null,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "necessite le juge LLM (desactive)"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "non evalue pour ce cas"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "necessite le juge LLM (desactive)"
+    } ],
+    "error" : null
+  }, {
+    "id" : "hallucination_005",
+    "caseHash" : "b55f76306024",
+    "category" : "hallucination",
+    "prompt" : "Summarize the main findings of the 2019 paper 'Recursive Tokenization for Arabic Subtitle Alignment' by Dr. Karim Belhadj.",
+    "answer" : "I don't have access to the specific 2019 paper \"Recursive Tokenization for Arabic Subtitle Alignment\" by Dr. Karim Belhadj in my training data. To provide you with an accurate summary of its main findings, I would need to be able to access and read the actual paper.\n\nHowever, based on the title and the author's expertise, I can infer that this work likely focused on:\n\n- **Arabic text processing** and **subtitle alignment** techniques\n- **Recursive tokenization methods** for handling Arabic language characteristics\n- **Automatic alignment** of Arabic subtitles with audio or other linguistic resources\n\nTo get the actual main findings, I'd recommend:\n\n1. Accessing the paper directly through academic databases like IEEE Xplore, ACL Anthology, or Google Scholar\n2. Checking if it was published in a conference proceedings or journal\n3. Looking for the author's institutional affiliation or research group for additional context\n\nIf you have access to the paper, I'd be happy to help you analyze and summarize its specific findings once you share the key content with me.",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 5495,
+    "inputTokens" : 41,
+    "outputTokens" : 223,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : null,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "necessite le juge LLM (desactive)"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "non evalue pour ce cas"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "necessite le juge LLM (desactive)"
+    } ],
+    "error" : null
+  }, {
+    "id" : "summary_002",
+    "caseHash" : "f18885ef3400",
+    "category" : "summarization",
+    "prompt" : "Summarize the following incident report in one sentence: 'At 14:02 the transcoding pods started failing with OOMKilled. The team found that the latest release had doubled the default buffer size. The release was rolled back at 14:35 and the job queue was fully drained by 15:10.'",
+    "answer" : "A software release that doubled the default buffer size caused transcoding pods to fail with OOMKilled errors, leading to a rollback at 14:35 and full job queue drainage by 15:10.",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 1424,
+    "inputTokens" : 80,
+    "outputTokens" : 47,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : null,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "necessite le juge LLM (desactive)"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "au plus 1 phrase(s)"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "necessite le juge LLM (desactive)"
+    } ],
+    "error" : null
+  }, {
+    "id" : "summary_003",
+    "caseHash" : "c0abd90495e2",
+    "category" : "summarization",
+    "prompt" : "Résume ce texte en français, en deux phrases maximum : 'Le service de sous-titrage reçoit un fichier vidéo, extrait la piste audio et la transcrit automatiquement. Les sous-titres générés sont ensuite synchronisés avec la vidéo, traduits dans les langues demandées, puis exportés aux formats SRT et VTT. Un opérateur peut corriger le texte avant la publication.'",
+    "answer" : "Le service de sous-titrage extrait l'audio d'une vidéo, le transcrit automatiquement et le synchronise avec la vidéo. Il génère ensuite les sous-titres dans les langues demandées, aux formats SRT et VTT, et permet une correction avant publication.",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 1787,
+    "inputTokens" : 98,
+    "outputTokens" : 61,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : null,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "necessite le juge LLM (desactive)"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "au plus 2 phrase(s) (langue non verifiee, juge desactive)"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "necessite le juge LLM (desactive)"
+    } ],
+    "error" : null
+  }, {
+    "id" : "fr_002",
+    "caseHash" : "4ca1e3d38762",
+    "category" : "multilingual",
+    "prompt" : "Traduis en français, sans aucune explication : 'The video could not be transcoded because the source file is corrupted.'",
+    "answer" : "La vidéo n'a pas pu être transcodée parce que le fichier source est corrompu.",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 860,
+    "inputTokens" : 34,
+    "outputTokens" : 21,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : null,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "necessite le juge LLM (desactive)"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "au plus 1 phrase(s) (langue non verifiee, juge desactive)"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "non evalue pour ce cas"
+    } ],
+    "error" : null
+  }, {
+    "id" : "ar_001",
+    "caseHash" : "176bc4bcb273",
+    "category" : "multilingual",
+    "prompt" : "أجب باللغة العربية فقط وفي جملة واحدة: ما هو ملف الترجمة بصيغة SRT؟",
+    "answer" : "ملف الترجمة بصيغة SRT هو ملف نصي يحتوي علىنصوص مترجمة مزامنة مع أوقات ظهورها في الفيديو، ويُستخدم لعرض الترجمات على مقاطع الفيديو.",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 1657,
+    "inputTokens" : 35,
+    "outputTokens" : 61,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : null,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "necessite le juge LLM (desactive)"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "au plus 1 phrase(s) (langue non verifiee, juge desactive)"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "necessite le juge LLM (desactive)"
+    } ],
+    "error" : null
+  }, {
+    "id" : "es_001",
+    "caseHash" : "5d0f415072f7",
+    "category" : "multilingual",
+    "prompt" : "Responde solo en español y en una sola frase: ¿qué es un contenedor Docker?",
+    "answer" : "Un contenedor Docker es una instancia ligera y portable de un entorno de ejecución que incluye una aplicación y todas sus dependencias para ejecutarse de manera consistente en cualquier otro sistema donde esté instalado Docker.",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 1392,
+    "inputTokens" : 27,
+    "outputTokens" : 48,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : null,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "necessite le juge LLM (desactive)"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "au plus 1 phrase(s) (langue non verifiee, juge desactive)"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "necessite le juge LLM (desactive)"
+    } ],
+    "error" : null
+  }, {
+    "id" : "instruction_002",
+    "caseHash" : "e8877c376401",
+    "category" : "instruction_following",
+    "prompt" : "List exactly 4 HTTP methods, in uppercase. Return them as a comma-separated list with no explanation.",
+    "answer" : "GET, POST, PUT, DELETE",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 473,
+    "inputTokens" : 29,
+    "outputTokens" : 8,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : null,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "necessite le juge LLM (desactive)"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "4 elements separes par des virgules"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "non evalue pour ce cas"
+    } ],
+    "error" : null
+  }, {
+    "id" : "instruction_003",
+    "caseHash" : "314490b88fab",
+    "category" : "instruction_following",
+    "prompt" : "Give exactly 5 video container formats as a comma-separated list, with no explanation. Do not include MP4.",
+    "answer" : "AVI, MOV, WMV, FLV, MKV",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 629,
+    "inputTokens" : 31,
+    "outputTokens" : 14,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : null,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "necessite le juge LLM (desactive)"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "5 elements separes par des virgules"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "non evalue pour ce cas"
+    } ],
+    "error" : null
+  }, {
+    "id" : "schema_001",
+    "caseHash" : "5a900f7ef00a",
+    "category" : "structured_output",
+    "prompt" : "Classe ce ticket d'incident : 'Composant : transcodage. Gravite : critique. Statut : ouvert.' Utilise les valeurs autorisees par le schema.",
+    "answer" : "{\n  \"component\": \"transcoding\",\n  \"severity\": \"critical\",\n  \"status\": \"OPEN\"\n}",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 1348,
+    "inputTokens" : 241,
+    "outputTokens" : 25,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : true,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "toutes les valeurs attendues sont correctes"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "PASS",
+      "method" : "schema",
+      "reason" : "conforme au schema"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "non evalue pour ce cas"
+    } ],
+    "error" : null
+  }, {
+    "id" : "schema_002",
+    "caseHash" : "6021a191b57d",
+    "category" : "structured_output",
+    "prompt" : "Extrais uniquement le nom et l'email de cette fiche : 'Karim Alaoui, 34 ans, ingenieur DevOps chez NovaTech a Rabat, k.alaoui@novatech.example.'",
+    "answer" : "{\n  \"name\": \"Karim Alaoui\",\n  \"email\": \"k.alaoui@novatech.example\"\n}",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 1166,
+    "inputTokens" : 186,
+    "outputTokens" : 28,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : true,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "toutes les valeurs attendues sont correctes"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "PASS",
+      "method" : "schema",
+      "reason" : "conforme au schema"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "non evalue pour ce cas"
+    } ],
+    "error" : null
+  }, {
+    "id" : "schema_003",
+    "caseHash" : "78844c15647c",
+    "category" : "structured_output",
+    "prompt" : "Decris les pistes de sous-titres de la video 7781, dans cet ordre : francais en VTT (1240 lignes), arabe en SRT (1198 lignes), anglais en VTT (1240 lignes). Codes langue ISO 639-1.",
+    "answer" : "{\n  \"videoId\": 7781,\n  \"tracks\": [\n    {\n      \"language\": \"fr\",\n      \"format\": \"VTT\",\n      \"cues\": 1240\n    },\n    {\n      \"language\": \"ar\",\n      \"format\": \"SRT\",\n      \"cues\": 1198\n    },\n    {\n      \"language\": \"en\",\n      \"format\": \"VTT\",\n      \"cues\": 1240\n    }\n  ]\n}",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 3425,
+    "inputTokens" : 332,
+    "outputTokens" : 111,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : true,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "toutes les valeurs attendues sont correctes"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "PASS",
+      "method" : "schema",
+      "reason" : "conforme au schema"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "non evalue pour ce cas"
+    } ],
+    "error" : null
+  }, {
+    "id" : "schema_004",
+    "caseHash" : "9425d55dfb25",
+    "category" : "structured_output",
+    "prompt" : "Un lot de transcodage a traite 50 videos : 47 ont reussi, les autres ont echoue. Donne le taux de reussite en pourcentage entier et le nombre d'echecs.",
+    "answer" : "{\n  \"successRate\": 94,\n  \"failures\": 3\n}",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 1049,
+    "inputTokens" : 221,
+    "outputTokens" : 20,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : true,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "toutes les valeurs attendues sont correctes"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "PASS",
+      "method" : "schema",
+      "reason" : "conforme au schema"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "non evalue pour ce cas"
+    } ],
+    "error" : null
+  }, {
+    "id" : "schema_005",
+    "caseHash" : "baa76294ff2d",
+    "category" : "structured_output",
+    "prompt" : "Analyse cette ligne de log : '2026-09-12 03:14:07 WARN [subtitle-worker] job=88 retry=2/5 timeout=true'.",
+    "answer" : "{\n  \"jobId\": 88,\n  \"level\": \"WARN\",\n  \"retry\": 2,\n  \"maxRetries\": 5,\n  \"timeout\": true\n}",
+    "servedBy" : "ollama",
+    "fallbackUsed" : false,
+    "model" : "qwen3-coder:30b",
+    "latencyMs" : 1623,
+    "inputTokens" : 272,
+    "outputTokens" : 41,
+    "cost" : 0.0,
+    "finishReason" : "COMPLETE",
+    "schemaValid" : true,
+    "scores" : [ {
+      "dimension" : "CORRECTNESS",
+      "verdict" : "PASS",
+      "method" : "regle",
+      "reason" : "toutes les valeurs attendues sont correctes"
+    }, {
+      "dimension" : "FORMAT",
+      "verdict" : "PASS",
+      "method" : "schema",
+      "reason" : "conforme au schema"
+    }, {
+      "dimension" : "HALLUCINATION",
+      "verdict" : "SKIPPED",
+      "method" : "-",
+      "reason" : "non evalue pour ce cas"
+    } ],
+    "error" : null
+  } ],
+  "reportFile" : "/Users/moadfajri/Documents/My-Projects/AI Projects/llm-gateway/eval-reports/eval-20261014-083916-ollama-e55c64c3.json"
+}

@@ -1,0 +1,18 @@
+gateway:
+  default-provider: ollama
+  providers:
+    ollama:
+      base-url: http://localhost:11434
+      default-model: test-model
+      api-key: ""
+      timeout-seconds: 5
+    deepseek:
+      base-url: http://localhost:1
+      default-model: test-model
+      api-key: ""
+      timeout-seconds: 5
+    openai:
+      base-url: http://localhost:1
+      default-model: test-model
+      api-key: ""
+      timeout-seconds: 5

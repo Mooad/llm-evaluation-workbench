@@ -1,0 +1,106 @@
+<div class="page">
+  <section class="card" aria-labelledby="defaults-title">
+    <header class="card__header">
+      <div>
+        <h2 id="defaults-title">Réglages globaux</h2>
+        <p class="hint">
+          Appliqués par le Gateway à <strong>tous ses clients</strong> quand la requête ne précise rien.
+          Une session du portail peut les remplacer.
+        </p>
+        @if (config.settings(); as s) {
+          <p class="meta">Stockés dans <code>{{ s.file }}</code>, réécrit à chaque enregistrement.</p>
+        }
+      </div>
+    </header>
+
+    @if (config.settings(); as s) {
+      @for (p of s.providers; track p.provider) {
+        <app-defaults-row [settings]="p" />
+      }
+      <p class="hint footnote">
+        Vide = rien d'imposé : le fournisseur applique son propre défaut. Chez DeepSeek, max tokens inclut le
+        raisonnement.
+      </p>
+    } @else if (config.unreachable()) {
+      <div class="alert" role="alert"><strong>gateway_unreachable</strong> Réglages indisponibles.</div>
+    } @else {
+      <p class="hint">Chargement…</p>
+    }
+  </section>
+
+  <section class="card" aria-labelledby="pricing-title">
+    <header class="card__header">
+      <div>
+        <h2 id="pricing-title">Tarifs appliqués</h2>
+        <p class="hint">
+          coût = (tokens entrée × prix entrée + tokens sortie × prix sortie) / 1 000 000
+        </p>
+        @if (config.pricing(); as p) {
+          <p class="meta">
+            Source <code>{{ p.source }}</code>, en lecture seule : modifier le fichier puis redémarrer le Gateway.
+          </p>
+        }
+      </div>
+    </header>
+
+    <div class="simulator">
+      <span class="simulator__label">Simuler une requête</span>
+      <div class="field">
+        <label for="sim-input">Tokens entrée</label>
+        <input
+          id="sim-input"
+          type="number"
+          min="0"
+          step="100"
+          [value]="inputTokens()"
+          (input)="inputTokens.set($any($event.target).value)"
+        />
+      </div>
+      <div class="field">
+        <label for="sim-output">Tokens sortie</label>
+        <input
+          id="sim-output"
+          type="number"
+          min="0"
+          step="100"
+          [value]="outputTokens()"
+          (input)="outputTokens.set($any($event.target).value)"
+        />
+      </div>
+    </div>
+
+    @if (config.pricing(); as p) {
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Modèle</th>
+              <th scope="col" class="num">Entrée / 1M</th>
+              <th scope="col" class="num">Sortie / 1M</th>
+              <th scope="col" class="num">Entrée / token</th>
+              <th scope="col" class="num">Sortie / token</th>
+              <th scope="col" class="num">Requête simulée</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (m of simulated(); track m.model) {
+              <tr>
+                <th scope="row" class="mono">{{ m.model }}</th>
+                <td class="num mono">{{ formatPrice(m.inputPer1m, p.currency) }}</td>
+                <td class="num mono">{{ formatPrice(m.outputPer1m, p.currency) }}</td>
+                <td class="num mono">{{ formatPrice(m.inputPerToken, p.currency) }}</td>
+                <td class="num mono">{{ formatPrice(m.outputPerToken, p.currency) }}</td>
+                <td class="num mono strong">{{ formatCost(m.cost, p.currency) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="hint footnote">
+        Un modèle absent de cette table sort en coût <strong>inconnu</strong>, jamais à zéro. Zéro = modèle local :
+        aucune facture d'API (l'énergie n'est pas comptée). DeepSeek : tarif heure pleine, entrée hors cache — une
+        borne haute.
+      </p>
+    }
+  </section>
+</div>

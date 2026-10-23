@@ -1,0 +1,137 @@
+<section class="card panel" aria-labelledby="source-title">
+  <header class="heading">
+    <svg class="heading__icon" viewBox="0 0 24 24" aria-hidden="true">
+      <ellipse cx="12" cy="5.5" rx="7" ry="2.5" />
+      <path d="M5 5.5v6c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5v-6M5 11.5v6c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5v-6" />
+    </svg>
+    <div>
+      <h2 id="source-title">Source active</h2>
+      <p class="hint">Ajoute un document : llm-rag le découpe et l'indexe automatiquement.</p>
+    </div>
+  </header>
+
+  <div class="kinds" role="group" aria-label="Type de source">
+    @for (kind of kinds; track kind.label) {
+      <button
+        type="button"
+        class="kind"
+        [class.kind--active]="kind.available"
+        [disabled]="!kind.available"
+        [attr.aria-pressed]="kind.available"
+      >
+        {{ kind.label }}
+        @if (!kind.available) {
+          <span class="soon">Bientôt</span>
+        }
+      </button>
+    }
+  </div>
+
+  <div
+    class="drop"
+    [class.drop--over]="dragging()"
+    (dragover)="onDragOver($event)"
+    (dragleave)="dragging.set(false)"
+    (drop)="onDrop($event)"
+  >
+    <svg class="drop__icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z M14 3v5h5 M9 13h6 M9 17h6" />
+    </svg>
+    <p class="drop__title">Glisse-dépose un fichier ici</p>
+    <p class="hint">ou</p>
+    <input #picker type="file" accept=".pdf,application/pdf" class="sr-only" id="rag-file" (change)="onPick(picker)" />
+    <button type="button" class="btn btn--primary" (click)="picker.click()" [disabled]="library.uploading()">
+      {{ library.uploading() ? 'Envoi…' : 'Charger un document' }}
+    </button>
+    <p class="hint small">PDF jusqu'à 50 Mo</p>
+    <div class="collection-field">
+      <label for="upload-collection">Collection</label>
+      <input
+        id="upload-collection"
+        list="known-collections"
+        [value]="library.uploadCollection()"
+        (input)="library.uploadCollection.set($any($event.target).value)"
+        placeholder="optionnelle, ex. moviid"
+      />
+      <datalist id="known-collections">
+        @for (c of library.collections(); track c) {
+          <option [value]="c"></option>
+        }
+      </datalist>
+    </div>
+  </div>
+
+  @if (library.notice(); as notice) {
+    <p class="notice" [class.notice--error]="notice.kind === 'error'" role="status">{{ notice.text }}</p>
+  }
+
+  @if (library.error(); as e) {
+    <div class="alert" role="alert">
+      <strong>{{ e.error }}</strong> {{ e.message }}
+      <button type="button" class="link" (click)="library.refresh()">Réessayer</button>
+    </div>
+  } @else if (library.loaded()) {
+    <h3 class="list-title">Documents</h3>
+    @if (library.visibleDocuments().length === 0) {
+      <p class="hint">
+        {{ settings.collection() ? 'Aucun document dans la collection « ' + settings.collection() + ' ».' : 'Aucun document indexé pour l’instant.' }}
+      </p>
+    } @else {
+      <ul class="docs">
+        @for (doc of library.visibleDocuments(); track doc.documentId) {
+          <li class="doc" [class.doc--off]="!settings.isIncluded(doc.documentId)">
+            <input
+              type="checkbox"
+              [id]="'doc-' + doc.documentId"
+              [checked]="settings.isIncluded(doc.documentId)"
+              [disabled]="library.stateIn(doc)?.status !== 'READY'"
+              (change)="settings.toggleDocument(doc.documentId)"
+              [attr.aria-label]="'Interroger ' + doc.fileName"
+            />
+            <label class="doc__name" [for]="'doc-' + doc.documentId" [title]="doc.documentId">
+              {{ doc.fileName }}
+              @if (doc.collection) {
+                <span class="tag">{{ doc.collection }}</span>
+              }
+            </label>
+            <span class="doc__indexes">
+              @for (index of library.indexes(); track index.name) {
+                @if (library.stateIn(doc, index.name); as state) {
+                  <span
+                    class="status"
+                    [class]="'status status--' + state.status.toLowerCase()"
+                    [class.status--current]="index.name === library.selectedIndex()?.name"
+                    [title]="index.label + (state.error ? ' — ' + state.error : '')"
+                  >
+                    <span class="dot" aria-hidden="true"></span>{{ index.name }}
+                    {{ state.status === 'READY' ? formatCount(state.chunks) : statusLabels[state.status] }}
+                  </span>
+                } @else {
+                  <span class="status status--absent" [title]="index.label + ' : pas encore indexé (reconstruire l’index)'">
+                    <span class="dot" aria-hidden="true"></span>{{ index.name }} —
+                  </span>
+                }
+              }
+            </span>
+            <button
+              type="button"
+              class="delete"
+              (click)="confirmDelete(doc)"
+              [disabled]="doc.status === 'PROCESSING'"
+              [attr.aria-label]="'Supprimer ' + doc.fileName"
+              title="Supprimer de tous les index"
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
+              </svg>
+            </button>
+          </li>
+        }
+      </ul>
+      <p class="hint small">
+        Les documents cochés et prêts dans l'index {{ library.selectedIndex()?.name }} sont interrogés.
+        Chiffre = nombre de chunks dans chaque index.
+      </p>
+    }
+  }
+</section>

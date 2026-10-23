@@ -1,0 +1,30 @@
+# Local repository metadata retained from the separate projects.
+.local-repo-history/
+
+# Local credentials and private configuration.
+.env
+.env.*
+!.env.example
+**/application-secrets.yml
+**/application-local.yml
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+*.pdf
+llm-rag/scripts/test-corpus/*.md
+
+# Runtime data, logs, evaluation runs, and generated output.
+**/state/
+**/datasets/
+**/eval-reports/
+**/logs/
+**/target/
+**/node_modules/
+**/dist/
+**/.angular/
+**/coverage/
+**/.DS_Store
+**/.idea/
+**/.claude/

@@ -1,0 +1,157 @@
+<section class="card detail" aria-labelledby="detail-title">
+  @switch (state().status) {
+    @case ('loading') {
+      <p class="hint">Chargement du rapport…</p>
+    }
+    @case ('error') {
+      <div class="alert" role="alert"><strong>report_not_found</strong> {{ $any(state()).message }}</div>
+    }
+  }
+
+  @if (report(); as r) {
+    <header class="card__header">
+      <div>
+        <h2 id="detail-title">Rapport · {{ r.candidate }}</h2>
+        <p class="hint meta">
+          {{ formatDateTime(r.startedAt) }} · {{ formatMs(r.durationMs) }} · juge
+          <span class="mono">{{ r.judge === 'desactive' ? 'désactivé' : r.judge }}</span>
+          · dataset <span class="mono">{{ r.datasetHash ?? 'sans empreinte' }}</span>
+          @if (r.settings; as s) {
+            · température {{ s.temperature }} · {{ s.maxTokens }} tokens{{ s.filtered ? ' · partiel' : '' }}
+          }
+        </p>
+      </div>
+      <div class="tools">
+        @if (previousId(); as prev) {
+          <button type="button" class="btn btn--primary" (click)="compareWith.emit([prev, reportId()])">
+            Comparer à la précédente
+          </button>
+        }
+        <button type="button" class="btn btn--ghost" (click)="download(r)">JSON</button>
+        <button type="button" class="btn" [class.btn--danger]="confirmingDelete()" [class.btn--ghost]="!confirmingDelete()"
+                (click)="remove()" (blur)="confirmingDelete.set(false)">
+          {{ confirmingDelete() ? 'Confirmer la suppression' : 'Supprimer' }}
+        </button>
+        <button type="button" class="link" (click)="closed.emit()">Fermer</button>
+      </div>
+    </header>
+
+    @if (r.settings?.systemPrompt; as prompt) {
+      <p class="system-prompt"><span class="case__label">Prompt système</span> {{ prompt }}</p>
+    }
+
+    <div class="kpis">
+      @for (d of dimensions; track d) {
+        <div class="kpi">
+          <span class="kpi__label">{{ d }}</span>
+          <span class="kpi__value">{{ formatRate(r.dimensions[d]?.passRate) }}</span>
+          <span class="kpi__sub">
+            {{ r.dimensions[d]?.passed ?? 0 }} pass · {{ r.dimensions[d]?.failed ?? 0 }} fail ·
+            {{ r.dimensions[d]?.skipped ?? 0 }} non noté{{ r.dimensions[d]?.errors ? ' · ' + r.dimensions[d]?.errors + ' erreur' : '' }}
+          </span>
+        </div>
+      }
+      <div class="kpi">
+        <span class="kpi__label">Schéma</span>
+        <span class="kpi__value">{{ formatRate(schemaRate()) }}</span>
+        <span class="kpi__sub">sorties conformes au schéma</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi__label">Latence p50</span>
+        <span class="kpi__value">{{ formatMs(r.latency?.p50Ms) }}</span>
+        <span class="kpi__sub">moy. {{ formatMs(r.latency?.avgMs) }} · max {{ formatMs(r.latency?.maxMs) }}</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi__label">Coût total</span>
+        <span class="kpi__value">{{ formatCost(r.totalCost, r.currency) }}</span>
+        <span class="kpi__sub">{{ formatCount(r.inputTokens) }} in · {{ formatCount(r.outputTokens) }} out</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi__label">Coût / réponse juste</span>
+        <span class="kpi__value">{{ formatCost(r.costPerCorrect, r.currency) }}</span>
+        <span class="kpi__sub">coût total ÷ correctness PASS</span>
+      </div>
+    </div>
+
+    @if (r.warnings.length) {
+      <ul class="warnings">
+        @for (w of r.warnings; track w) {
+          <li>{{ w }}</li>
+        }
+      </ul>
+    }
+
+    <div class="filters" role="tablist" aria-label="Filtrer les cas">
+      @for (f of filters; track f.key) {
+        <button type="button" role="tab" class="filter" [class.filter--on]="filter() === f.key"
+                [attr.aria-selected]="filter() === f.key" (click)="filter.set(f.key)">
+          {{ f.label }} <span class="count">{{ counts()[f.key] }}</span>
+        </button>
+      }
+    </div>
+
+    <div class="table-wrap">
+      <table class="data-table cases">
+        <thead>
+          <tr>
+            <th scope="col">Cas</th>
+            <th scope="col">Catégorie</th>
+            <th scope="col">Correct.</th>
+            <th scope="col">Format</th>
+            <th scope="col">Halluc.</th>
+            <th scope="col" class="num">Latence</th>
+            <th scope="col" class="num">Coût</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (c of visibleCases(); track c.id) {
+            <tr class="row" [class.row--open]="expanded() === c.id" (click)="toggle(c.id)">
+              <td class="mono">
+                {{ c.id }}
+                @if (c.fallbackUsed) {
+                  <span class="badge badge--warning">repli</span>
+                }
+              </td>
+              <td>{{ c.category }}</td>
+              @for (d of dimensions; track d) {
+                <td><span class="verdict" [class]="'verdict--' + verdict(c, d).toLowerCase()">{{ verdict(c, d) }}</span></td>
+              }
+              <td class="num">{{ formatMs(c.latencyMs) }}</td>
+              <td class="num">{{ formatCost(c.cost, r.currency) }}</td>
+            </tr>
+            @if (expanded() === c.id) {
+              <tr class="expansion">
+                <td colspan="7">
+                  <div class="case">
+                    <div class="case__block">
+                      <span class="case__label">Prompt</span>
+                      <p class="case__text">{{ c.prompt }}</p>
+                    </div>
+                    <div class="case__block">
+                      <span class="case__label">Réponse · {{ c.servedBy }} / {{ c.model }}</span>
+                      <pre class="case__answer">{{ c.answer ?? '—' }}</pre>
+                    </div>
+                    @if (c.error) {
+                      <div class="alert" role="alert">{{ c.error }}</div>
+                    }
+                    <ul class="scores">
+                      @for (s of c.scores; track s.dimension) {
+                        <li>
+                          <span class="verdict" [class]="'verdict--' + s.verdict.toLowerCase()">{{ s.verdict }}</span>
+                          <span class="score__dim">{{ s.dimension }}</span>
+                          <span class="mono score__method">{{ s.method }}</span>
+                          <span class="score__reason">{{ s.reason }}</span>
+                        </li>
+                      }
+                    </ul>
+                  </div>
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+    <p class="hint file">Fichier : <span class="mono">{{ r.reportFile }}</span></p>
+  }
+</section>

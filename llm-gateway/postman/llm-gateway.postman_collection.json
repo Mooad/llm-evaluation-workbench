@@ -1,0 +1,1478 @@
+{
+  "info": {
+    "name": "LLM Gateway",
+    "description": "Toutes les routes du Gateway. Demarrer l'app (port 8081) et Ollama avant de lancer.\nRun collection : chaque requete verifie son code HTTP attendu.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8081"
+    },
+    {
+      "key": "localProvider",
+      "value": "ollama"
+    },
+    {
+      "key": "remoteProvider",
+      "value": "deepseek"
+    },
+    {
+      "key": "runId",
+      "value": ""
+    },
+    {
+      "key": "reportA",
+      "value": ""
+    },
+    {
+      "key": "reportB",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "0 - Sante",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/actuator/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "actuator",
+                "health"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"UP\", () => pm.expect(pm.response.json().status).to.eql(\"UP\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Fournisseurs disponibles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/providers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "providers"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"liste non vide\", () => pm.expect(pm.response.json().available).to.not.be.empty);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Statut de chaque LLM",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/providers/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "providers",
+                "status"
+              ]
+            },
+            "description": "Sondes legeres et paralleles : joignable ? modele reellement disponible ?\nAucune generation, aucun token consomme.\nDEGRADED = joignable mais modele absent ou cle manquante.\n503 quand plus aucun fournisseur n'est UP."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"200 si au moins un fournisseur repond\", () => pm.expect([200, 503]).to.include(pm.response.code));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"chaque fournisseur a un statut\", () => r.providers.forEach(p =>",
+                  "    pm.expect([\"UP\",\"DEGRADED\",\"DOWN\",\"UNKNOWN\"]).to.include(p.status)));",
+                  "r.providers.forEach(p => console.log(p.provider.padEnd(10), p.status.padEnd(9),",
+                  "    \"modele=\" + p.defaultModel, \"dispo=\" + p.modelAvailable, p.latencyMs + \"ms |\", p.detail));",
+                  "// De quoi choisir un juge independant du candidat",
+                  "const up = r.providers.filter(p => p.status === \"UP\").map(p => p.provider);",
+                  "console.log(\"fournisseurs UP :\", up.join(\", \") || \"aucun\");",
+                  "const def = r.providers.find(p => p.provider === r.default);",
+                  "if (def && def.status !== \"UP\") {",
+                  "    console.warn(\"Le fournisseur par defaut (\" + r.default + \") n'est pas UP :\",",
+                  "        \"tout appel sans provider explicite partira en fallback.\");",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1 - Chat",
+      "item": [
+        {
+          "name": "Chat simple (ollama)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"{{localProvider}}\",\n  \"maxTokens\": 40,\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Quelle est la capitale de la Mauritanie ?\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 200\", () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"contenu present\", () => pm.expect(r.content).to.be.a(\"string\").and.not.empty);",
+                  "pm.test(\"tokens mesures\", () => pm.expect(r.inputTokens).to.be.above(0));",
+                  "pm.test(\"finishReason normalise\", () => pm.expect([\"COMPLETE\",\"TRUNCATED\",\"REFUSED\",\"TOOL_USE\",\"UNKNOWN\"]).to.include(r.finishReason));",
+                  "pm.test(\"cout estime present\", () => pm.expect(r).to.have.property(\"estimatedCost\"));",
+                  "console.log(\"cout:\", r.estimatedCost, r.currency, \"| tokens:\", r.inputTokens, \"/\", r.outputTokens);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Chat distant (deepseek)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat"
+              ]
+            },
+            "description": "Cle DeepSeek valide requise (application-secrets.yml ou DEEPSEEK_API_KEY). Sinon : bascule sur ollama et le test fallbackUsed echoue.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"{{remoteProvider}}\",\n  \"maxTokens\": 30,\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Dis juste : OK\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 200\", () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"servi par deepseek, sans repli\", () => { pm.expect(r.provider).to.eql(pm.variables.get(\"remoteProvider\")); pm.expect(r.fallbackUsed).to.be.false; });",
+                  "pm.test(\"cout connu (tarif configure)\", () => pm.expect(r.estimatedCost).to.be.a(\"number\"));",
+                  "console.log(\"modele\", r.model, \"| cout\", r.estimatedCost, r.currency, \"| latence\", r.latencyMs, \"ms\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Chat deepseek, raisonnement impose par la requete",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat"
+              ]
+            },
+            "description": "La requete prime sur le defaut global : applied.reasoning.origin = REQUEST.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"{{remoteProvider}}\",\n  \"reasoning\": false,\n  \"maxTokens\": 200,\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Dis juste : OK\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 200\", () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"origine REQUEST\", () => pm.expect(r.applied.reasoning).to.eql({ value: false, origin: \"REQUEST\" }));",
+                  "console.log(\"reglages appliques\", r.applied);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Chat avec message systeme",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"{{localProvider}}\",\n  \"temperature\": 0.2,\n  \"maxTokens\": 40,\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Tu reponds en une seule phrase courte, en francais.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"A quoi sert un fichier VTT ?\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Chat fournisseur par defaut (sans provider)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat"
+              ]
+            },
+            "description": "Utilise gateway.default-provider.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"maxTokens\": 30,\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Dis juste : OK\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reponse coupee -> TRUNCATED",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"{{localProvider}}\",\n  \"maxTokens\": 5,\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Explique la tokenisation en detail.\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"TRUNCATED\", () => pm.expect(pm.response.json().finishReason).to.eql(\"TRUNCATED\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Conversation multi-tours",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat"
+              ]
+            },
+            "description": "Le Gateway est sans memoire : le client renvoie tout l'historique.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"{{localProvider}}\",\n  \"maxTokens\": 40,\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Je m'appelle Moad.\"\n    },\n    {\n      \"role\": \"assistant\",\n      \"content\": \"Enchante Moad.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Comment je m'appelle ?\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2 - Fallback",
+      "item": [
+        {
+          "name": "DeepSeek indisponible -> bascule sur ollama",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat"
+              ]
+            },
+            "description": "Sans cle ou avec une cle refusee : fallbackUsed=true et provider=ollama. Avec une cle valide : servi par deepseek, sans repli.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"{{remoteProvider}}\",\n  \"maxTokens\": 30,\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Dis juste : OK\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 200\", () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"requestedProvider = deepseek\", () => pm.expect(r.requestedProvider).to.eql(pm.variables.get(\"remoteProvider\")));",
+                  "pm.test(\"fallbackUsed coherent avec le fournisseur servi\", () => pm.expect(r.fallbackUsed).to.eql(r.provider !== r.requestedProvider));",
+                  "console.log(\"servi par\", r.provider, \"fallbackUsed =\", r.fallbackUsed);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3 - Sorties structurees",
+      "item": [
+        {
+          "name": "Extraction simple (job)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat/structured",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "structured"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"{{localProvider}}\",\n  \"maxTokens\": 200,\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Analyse : le job de transcodage 4412 a echoue apres 3 tentatives, la file SQS est a 8200 messages.\"\n    }\n  ],\n  \"schema\": {\n    \"type\": \"object\",\n    \"required\": [\n      \"jobId\",\n      \"status\",\n      \"severity\",\n      \"queueDepth\"\n    ],\n    \"additionalProperties\": false,\n    \"properties\": {\n      \"jobId\": {\n        \"type\": \"integer\"\n      },\n      \"status\": {\n        \"type\": \"string\",\n        \"enum\": [\n          \"PENDING\",\n          \"RUNNING\",\n          \"DONE\",\n          \"FAILED\"\n        ]\n      },\n      \"severity\": {\n        \"type\": \"string\",\n        \"enum\": [\n          \"low\",\n          \"medium\",\n          \"high\",\n          \"critical\"\n        ]\n      },\n      \"queueDepth\": {\n        \"type\": \"integer\",\n        \"minimum\": 0\n      }\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r = pm.response.json();",
+                  "pm.test(\"200 ou 422\", () => pm.expect([200, 422]).to.include(pm.response.code));",
+                  "pm.test(\"sortie brute toujours presente\", () => pm.expect(r.raw).to.be.a(\"string\"));",
+                  "if (r.valid) { pm.test(\"data.jobId = 4412\", () => pm.expect(r.data.jobId).to.eql(4412)); }",
+                  "else { console.log(\"violations\", r.violations); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Diagnostic d'incident (contrat semaine 15)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat/structured",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "structured"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"{{localProvider}}\",\n  \"maxTokens\": 400,\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Les pods de transcodage redemarrent en boucle depuis 10 minutes (CrashLoopBackOff). La file SQS monte a 12000 messages. Le dernier deploiement date de 15 minutes.\"\n    }\n  ],\n  \"schema\": {\n    \"type\": \"object\",\n    \"required\": [\n      \"symptom\",\n      \"observations\",\n      \"hypotheses\",\n      \"probableCause\",\n      \"recommendedAction\",\n      \"severity\"\n    ],\n    \"additionalProperties\": false,\n    \"properties\": {\n      \"symptom\": {\n        \"type\": \"string\"\n      },\n      \"observations\": {\n        \"type\": \"array\",\n        \"items\": {\n          \"type\": \"string\"\n        }\n      },\n      \"hypotheses\": {\n        \"type\": \"array\",\n        \"items\": {\n          \"type\": \"string\"\n        }\n      },\n      \"probableCause\": {\n        \"type\": \"string\"\n      },\n      \"recommendedAction\": {\n        \"type\": \"string\"\n      },\n      \"severity\": {\n        \"type\": \"string\",\n        \"enum\": [\n          \"low\",\n          \"medium\",\n          \"high\",\n          \"critical\"\n        ]\n      }\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"200 ou 422\", () => pm.expect([200, 422]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Schema absent -> 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat/structured",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "structured"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"{{localProvider}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"test\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Schema non gere -> 400 (aucun appel modele)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat/structured",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "structured"
+              ]
+            },
+            "description": "pattern et minItems ne sont pas verifies par le Gateway : schema refuse avant l'appel, aucun token consomme.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"{{localProvider}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"test\"\n    }\n  ],\n  \"schema\": {\n    \"type\": \"object\",\n    \"properties\": {\n      \"email\": {\n        \"type\": \"string\",\n        \"pattern\": \".+@.+\"\n      },\n      \"tags\": {\n        \"type\": \"array\",\n        \"minItems\": 1\n      }\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 400\", () => pm.response.to.have.status(400));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"erreur invalid_schema\", () => pm.expect(r.error).to.eql(\"invalid_schema\"));",
+                  "pm.test(\"nomme le mot-cle et son chemin\", () => pm.expect(r.message).to.include(\"$.properties.email\").and.include(\"pattern\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4 - Erreurs attendues",
+      "item": [
+        {
+          "name": "Fournisseur inconnu -> 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"openai\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"test\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"unknown_provider\", () => pm.expect(pm.response.json().error).to.eql(\"unknown_provider\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Messages vides -> 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"messages\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"invalid_request\", () => pm.expect(pm.response.json().error).to.eql(\"invalid_request\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Role invalide -> 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"messages\": [\n    {\n      \"role\": \"robot\",\n      \"content\": \"test\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Temperature hors bornes -> 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"temperature\": 5.0,\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"test\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5 - Evaluation",
+      "item": [
+        {
+          "name": "Verifier le dataset (aucun appel modele)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/eval/dataset",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "eval",
+                "dataset"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"35 cas\", () => pm.expect(pm.response.json().length).to.eql(35));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Eval rapide - regles seules (sans juge)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/eval/run",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "eval",
+                "run"
+              ]
+            },
+            "description": "Ne note que ce qu'une regle sait trancher. Rapide : 10 appels au modele.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"{{localProvider}}\",\n  \"useJudge\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 200\", () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "console.log(\"candidat\", r.candidate, \"| juge\", r.judge);",
+                  "Object.entries(r.dimensions).forEach(([d, s]) => console.log(d, \"passRate\", s.passRate, s));",
+                  "console.log(\"latence\", r.latency, \"| avertissements\", r.warnings);",
+                  "console.log(\"rapport ecrit :\", r.reportFile);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Eval 2 cas (iteration rapide)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/eval/run",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "eval",
+                "run"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"{{localProvider}}\",\n  \"caseIds\": [\n    \"math_001\",\n    \"hallucination_001\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 200\", () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "console.log(\"candidat\", r.candidate, \"| juge\", r.judge);",
+                  "Object.entries(r.dimensions).forEach(([d, s]) => console.log(d, \"passRate\", s.passRate, s));",
+                  "console.log(\"latence\", r.latency, \"| avertissements\", r.warnings);",
+                  "console.log(\"rapport ecrit :\", r.reportFile);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Eval complete (regles + juge)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/eval/run",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "eval",
+                "run"
+              ]
+            },
+            "description": "35 cas + appels au juge : plusieurs minutes sur un modele local. Sans judgeProvider, le candidat se juge lui-meme (biais signale dans warnings).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"{{localProvider}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 200\", () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "console.log(\"candidat\", r.candidate, \"| juge\", r.judge);",
+                  "Object.entries(r.dimensions).forEach(([d, s]) => console.log(d, \"passRate\", s.passRate, s));",
+                  "console.log(\"latence\", r.latency, \"| avertissements\", r.warnings);",
+                  "console.log(\"rapport ecrit :\", r.reportFile);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Eval avec juge externe (DeepSeek)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/eval/run",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "eval",
+                "run"
+              ]
+            },
+            "description": "Juge different du candidat : supprime le biais d'auto-evaluation.\nVerifie d'abord dans '0 - Sante > Statut de chaque LLM' que deepseek est UP.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"{{localProvider}}\",\n  \"judgeProvider\": \"{{remoteProvider}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 200\", () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "console.log(\"candidat\", r.candidate, \"| juge\", r.judge);",
+                  "Object.entries(r.dimensions).forEach(([d, s]) => console.log(d, \"passRate\", s.passRate, s));",
+                  "console.log(\"latence\", r.latency, \"| avertissements\", r.warnings);",
+                  "console.log(\"rapport ecrit :\", r.reportFile);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Dataset inexistant -> 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/eval/run",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "eval",
+                "run"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"{{localProvider}}\",\n  \"datasetPath\": \"classpath:evaluation/nope.json\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"invalid_dataset\", () => pm.expect(pm.response.json().error).to.eql(\"invalid_dataset\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Datasets disponibles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/eval/datasets",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "eval",
+                "datasets"
+              ]
+            },
+            "description": "Golden dataset integre + datasets importes. Empreinte = identite du contenu."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 200\", () => pm.response.to.have.status(200));",
+                  "const golden = pm.response.json().find(d => d.id === \"golden\");",
+                  "pm.test(\"golden present, avec empreinte\", () => { pm.expect(golden.builtIn).to.be.true; pm.expect(golden.hash).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Lancer en arriere-plan (3 cas, regles seules)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/eval/runs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "eval",
+                "runs"
+              ]
+            },
+            "description": "Rend la main tout de suite (202). Une seule execution a la fois : 409 eval_running sinon.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"datasetId\": \"golden\",\n  \"provider\": \"{{localProvider}}\",\n  \"caseIds\": [\n    \"fact_001\",\n    \"fact_002\",\n    \"fact_003\"\n  ],\n  \"useJudge\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 202\", () => pm.response.to.have.status(202));",
+                  "const job = pm.response.json();",
+                  "pm.test(\"en cours\", () => pm.expect(job.status).to.eql(\"RUNNING\"));",
+                  "pm.collectionVariables.set(\"runId\", job.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Suivre l'execution",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/eval/runs/{{runId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "eval",
+                "runs",
+                "{{runId}}"
+              ]
+            },
+            "description": "Relancer jusqu'a status DONE : reportId pointe alors vers le rapport ecrit."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 200\", () => pm.response.to.have.status(200));",
+                  "const job = pm.response.json();",
+                  "pm.test(\"progression coherente\", () => pm.expect(job.done).to.be.at.most(job.total));",
+                  "console.log(job.status, job.done + \"/\" + job.total, job.reportId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Rapports",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/eval/reports",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "eval",
+                "reports"
+              ]
+            },
+            "description": "Du plus recent au plus ancien. Garde les deux derniers pour la regression."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 200\", () => pm.response.to.have.status(200));",
+                  "const reports = pm.response.json();",
+                  "if (reports.length >= 2) { pm.collectionVariables.set(\"reportA\", reports[1].id); pm.collectionVariables.set(\"reportB\", reports[0].id); }",
+                  "console.log(reports.map(r => r.id + \" \" + r.candidate).join(\"\\n\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Regression entre les deux derniers rapports",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/eval/regressions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "eval",
+                "regressions"
+              ]
+            },
+            "description": "Calcule l'etat de regression sur les cas communs et ecrit le JSON dans eval-reports/regressions/.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"baseline\": \"{{reportA}}\",\n  \"candidate\": \"{{reportB}}\",\n  \"thresholdPoints\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 200\", () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"etat calcule\", () => pm.expect([\"REGRESSION\", \"IMPROVEMENT\", \"STABLE\", \"NOT_COMPARABLE\"]).to.include(r.status));",
+                  "pm.test(\"rapport JSON ecrit\", () => pm.expect(r.file).to.include(\"regressions\"));",
+                  "console.log(r.summary);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "6 - Configuration",
+      "item": [
+        {
+          "name": "Reglages globaux",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/settings",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "settings"
+              ]
+            },
+            "description": "Defauts par fournisseur appliques quand la requete ne precise rien. Stockes dans settings/defaults.json."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 200\", () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"fichier indique\", () => pm.expect(r.file).to.include(\"defaults.json\"));",
+                  "pm.test(\"deepseek gere le raisonnement\", () => pm.expect(r.providers.find(p => p.provider === \"deepseek\").supportsReasoning).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Modifier deepseek : raisonnement coupe",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/settings/deepseek",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "settings",
+                "deepseek"
+              ]
+            },
+            "description": "Reecrit settings/defaults.json : s'applique a tous les clients du Gateway.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reasoning\": false,\n  \"maxTokens\": null,\n  \"temperature\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"raisonnement desactive\", () => pm.expect(pm.response.json().defaults.reasoning).to.eql(false));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Raisonnement sur ollama -> 400",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/settings/ollama",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "settings",
+                "ollama"
+              ]
+            },
+            "description": "Ollama n'a pas de mode raisonnement pilotable : stocker le reglage ferait croire qu'il s'applique.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reasoning\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"invalid_settings\", () => pm.expect(pm.response.json().error).to.eql(\"invalid_settings\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Tarifs appliques",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/pricing",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "pricing"
+              ]
+            },
+            "description": "Table de prix par million de tokens, telle que le Gateway l'applique (lecture seule)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"statut 200\", () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"deepseek-flash tarife\", () => pm.expect(r.models.map(m => m.model)).to.include(\"deepseek-flash\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

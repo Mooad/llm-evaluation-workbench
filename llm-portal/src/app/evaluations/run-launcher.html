@@ -1,0 +1,215 @@
+<section class="card launcher" aria-labelledby="launcher-title">
+  <header class="card__header">
+    <div>
+      <h2 id="launcher-title">Nouvelle évaluation</h2>
+      <p class="hint">
+        Rejoue un dataset sur un modèle et note chaque réponse : correctness, format, hallucination, latence, coût.
+      </p>
+    </div>
+  </header>
+
+  <!-- Dataset -->
+  <div class="block">
+    <div class="field-row field-row--dataset">
+      <div class="field">
+        <label for="dataset">Dataset</label>
+        <select id="dataset" [value]="datasetId()" (change)="selectDataset($any($event.target).value)" [disabled]="running()">
+          @for (d of datasets(); track d.id) {
+            <option [value]="d.id">{{ d.id }}{{ d.builtIn ? ' (intégré)' : '' }} · {{ d.caseCount }} cas</option>
+          }
+        </select>
+      </div>
+      <div class="field">
+        <label for="scope">Portée</label>
+        <select id="scope" [value]="category()" (change)="category.set($any($event.target).value)" [disabled]="running()">
+          <option value="">Tous les cas</option>
+          @for (c of dataset()?.categories | keyvalue; track c.key) {
+            <option [value]="c.key">{{ c.key }} · {{ c.value }} cas</option>
+          }
+        </select>
+      </div>
+      <label class="btn btn--ghost import" [class.disabled]="running()">
+        Importer un dataset…
+        <input type="file" accept="application/json,.json" (change)="onFile($event)" [disabled]="running()" />
+      </label>
+    </div>
+
+    @if (importJson() !== null) {
+      <div class="import-form">
+        <div class="field">
+          <label for="import-name">Nom du dataset importé</label>
+          <input id="import-name" [value]="importName()" (input)="importName.set($any($event.target).value)" />
+        </div>
+        <button type="button" class="btn btn--primary" (click)="confirmImport()" [disabled]="!importName()">
+          Importer
+        </button>
+        <button type="button" class="link" (click)="cancelImport()">Annuler</button>
+        @if (importError(); as e) {
+          <p class="error">{{ e }}</p>
+        }
+      </div>
+    }
+
+    @if (dataset(); as d) {
+      @if (d.error) {
+        <div class="alert" role="alert"><strong>invalid_dataset</strong> {{ d.error }}</div>
+      } @else {
+        <div class="dataset-info">
+          <span><strong>{{ scope().length }}</strong> cas évalués</span>
+          <span>{{ d.schemaCases }} avec schéma</span>
+          <span class="mono" title="Empreinte du dataset : deux rapports à la même empreinte ont évalué les mêmes cas">
+            empreinte {{ d.hash }}
+          </span>
+          <button type="button" class="link" (click)="showCases.set(!showCases())">
+            {{ showCases() ? 'Masquer les cas' : 'Voir les cas' }}
+          </button>
+        </div>
+        @if (showCases()) {
+          <ul class="case-list">
+            @for (c of scope(); track c.id) {
+              <li>
+                <span class="mono case-id">{{ c.id }}</span>
+                <span class="badge">{{ c.category }}</span>
+                @if (c.schema) {
+                  <span class="badge">schéma</span>
+                }
+                <span class="case-prompt">{{ c.prompt }}</span>
+              </li>
+            }
+          </ul>
+        }
+      }
+    }
+  </div>
+
+  <!-- Candidat et juge -->
+  <div class="block columns">
+    <fieldset>
+      <legend>Candidat — le modèle mesuré</legend>
+      <div class="field-row">
+        <div class="field">
+          <label for="candidate">Fournisseur</label>
+          <select id="candidate" [value]="provider()" (change)="provider.set($any($event.target).value)" [disabled]="running()">
+            <option value="">Défaut du Gateway{{ config.providers() ? ' (' + config.providers()!.default + ')' : '' }}</option>
+            @for (name of config.providers()?.available ?? []; track name) {
+              <option [value]="name">{{ name }}</option>
+            }
+          </select>
+        </div>
+        <div class="field">
+          <label for="candidate-model">Modèle</label>
+          <input id="candidate-model" list="models" [value]="model()" (input)="model.set($any($event.target).value)"
+                 placeholder="défaut du fournisseur" [disabled]="running()" />
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>
+        <label class="toggle">
+          <input type="checkbox" [checked]="useJudge()" (change)="useJudge.set($any($event.target).checked)" [disabled]="running()" />
+          Juge LLM — pour le sens, la langue, l'invention
+        </label>
+      </legend>
+      @if (useJudge()) {
+        <div class="field-row">
+          <div class="field">
+            <label for="judge">Fournisseur</label>
+            <select id="judge" [value]="judgeProvider()" (change)="judgeProvider.set($any($event.target).value)" [disabled]="running()">
+              <option value="">Comme le candidat</option>
+              @for (name of config.providers()?.available ?? []; track name) {
+                <option [value]="name">{{ name }}</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label for="judge-model">Modèle</label>
+            <input id="judge-model" list="models" [value]="judgeModel()" (input)="judgeModel.set($any($event.target).value)"
+                   placeholder="défaut du fournisseur" [disabled]="running()" />
+          </div>
+        </div>
+        @if (selfJudged()) {
+          <p class="hint warn">Le candidat se jugera lui-même : scores probablement optimistes. Choisis un autre modèle juge.</p>
+        }
+      } @else {
+        <p class="hint">Règles seules : rapide et gratuit, mais le sens et l'hallucination ne seront pas notés.</p>
+      }
+    </fieldset>
+    <datalist id="models">
+      @for (m of config.pricing()?.models ?? []; track m.model) {
+        <option [value]="m.model"></option>
+      }
+    </datalist>
+  </div>
+
+  <div class="field">
+    <label for="eval-system">Prompt système <span class="optional">— optionnel, envoyé en tête de chaque cas</span></label>
+    <textarea id="eval-system" rows="2" [value]="systemPrompt()" (input)="systemPrompt.set($any($event.target).value)"
+              [disabled]="running()"
+              placeholder="Ex. : Si tu n'es pas sûr d'un fait, dis que tu ne sais pas ; n'invente ni nom ni chiffre."></textarea>
+    <p class="hint">Pour mesurer son effet : une exécution sans, une avec, puis compare les deux.</p>
+  </div>
+
+  <details class="advanced">
+    <summary>Paramètres avancés</summary>
+    <div class="field-row field-row--3">
+      <div class="field">
+        <label for="temperature">Température</label>
+        <input id="temperature" type="number" min="0" max="2" step="0.1" [value]="temperature()"
+               (input)="temperature.set($any($event.target).value)" [disabled]="running()" />
+      </div>
+      <div class="field">
+        <label for="max-tokens">Max tokens</label>
+        <input id="max-tokens" type="number" min="1" [value]="maxTokens()"
+               (input)="maxTokens.set($any($event.target).value)" [disabled]="running()" />
+      </div>
+      <label class="toggle toggle--field">
+        <input type="checkbox" [checked]="allowFallback()" (change)="allowFallback.set($any($event.target).checked)" [disabled]="running()" />
+        Autoriser le repli
+      </label>
+    </div>
+    <p class="hint">
+      Température 0 pour la reproductibilité. Sans repli, un cas servi par un autre fournisseur est exclu de la mesure.
+    </p>
+  </details>
+
+  <!-- Lancement et progression -->
+  @if (job(); as j) {
+    <div class="progress" [class.progress--done]="j.status !== 'RUNNING'" role="status">
+      <div class="progress__head">
+        <span class="progress__title">
+          @switch (j.status) {
+            @case ('RUNNING') { {{ j.cancelling ? 'Annulation après le cas en cours…' : 'Évaluation en cours' }} }
+            @case ('DONE') { Évaluation terminée }
+            @case ('CANCELLED') { Évaluation annulée }
+            @case ('FAILED') { Évaluation en échec }
+          }
+        </span>
+        <span class="mono">{{ j.done }} / {{ j.total }} · {{ formatMs(elapsedMs()) }}</span>
+      </div>
+      <div class="bar" aria-hidden="true"><span [style.width.%]="percent()"></span></div>
+      <div class="progress__foot">
+        <span class="hint">
+          {{ j.lastCase ? 'Dernier cas : ' + j.lastCase : 'Démarrage…' }} · dataset {{ j.datasetId }}
+        </span>
+        @if (j.status === 'RUNNING') {
+          <button type="button" class="btn btn--ghost" (click)="cancel()" [disabled]="j.cancelling">Annuler</button>
+        } @else {
+          <button type="button" class="link" (click)="dismiss()">Fermer</button>
+        }
+      </div>
+      @if (j.error) {
+        <p class="error">{{ j.error }}</p>
+      }
+    </div>
+  }
+
+  <div class="actions">
+    @if (startError(); as e) {
+      <p class="error">{{ e }}</p>
+    }
+    <button type="button" class="btn btn--primary" (click)="launch()" [disabled]="running() || scope().length === 0">
+      Lancer l'évaluation · {{ scope().length }} cas
+    </button>
+  </div>
+</section>

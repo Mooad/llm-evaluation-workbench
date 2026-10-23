@@ -1,0 +1,213 @@
+<section class="card regression" aria-labelledby="regression-title">
+  @switch (state().status) {
+    @case ('loading') {
+      <p class="hint">Calcul de la régression…</p>
+    }
+    @case ('error') {
+      <div class="alert" role="alert"><strong>comparaison</strong> {{ $any(state()).message }}</div>
+      <button type="button" class="link" (click)="closed.emit()">Fermer</button>
+    }
+  }
+
+  @if (regression(); as r) {
+    <header class="card__header">
+      <div class="title">
+        <h2 id="regression-title">Régression</h2>
+        <span class="state" [class]="'state--' + r.status.toLowerCase()">{{ labels[r.status] }}</span>
+      </div>
+      <div class="tools">
+        <label class="threshold" title="Baisse de taux de réussite à partir de laquelle une dimension est en régression">
+          Seuil
+          <input type="number" min="0" max="100" step="1" [value]="threshold() ?? r.thresholdPoints"
+                 (input)="onThreshold($any($event.target).value)" />
+          pts
+        </label>
+        <button type="button" class="btn btn--ghost" (click)="swap.emit()" title="Inverser référence et candidat">
+          Inverser
+        </button>
+        <button type="button" class="btn btn--ghost" (click)="download(r)">JSON</button>
+        <button type="button" class="link" (click)="closed.emit()">Fermer</button>
+      </div>
+    </header>
+
+    <p class="headline">{{ headline() }}</p>
+
+    <!-- Les deux executions -->
+    <div class="pair">
+      @for (side of [{ label: 'Référence', ref: r.baseline }, { label: 'Candidat', ref: r.candidate }]; track side.label) {
+        <button type="button" class="ref" (click)="openReport.emit(side.ref.id)" title="Ouvrir ce rapport">
+          <span class="ref__label">{{ side.label }}</span>
+          <span class="ref__name mono">{{ side.ref.candidate }}</span>
+          <span class="hint">
+            {{ formatDateTime(side.ref.startedAt) }} · juge {{ side.ref.judge === 'desactive' ? 'désactivé' : side.ref.judge }}
+            · {{ side.ref.caseCount }} cas · {{ side.ref.datasetHash ?? 'sans empreinte' }}
+          </span>
+        </button>
+      }
+    </div>
+
+    <!-- Taux par dimension -->
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th scope="col">Dimension</th>
+            <th scope="col" class="num">Référence</th>
+            <th scope="col" class="num">Candidat</th>
+            <th scope="col" class="num">Écart</th>
+            <th scope="col" class="bar-col"><span class="sr-only">Visualisation</span></th>
+            <th scope="col" class="num">Comparés</th>
+            <th scope="col" class="num">En baisse</th>
+            <th scope="col" class="num">En hausse</th>
+            <th scope="col">État</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (d of dimensions; track d) {
+            @let delta = r.dimensions[d];
+            <tr>
+              <th scope="row">{{ d }}</th>
+              <td class="num">{{ formatRate(delta.baselineRate) }}</td>
+              <td class="num">{{ formatRate(delta.candidateRate) }}</td>
+              <td class="num" [class.down]="(delta.deltaPoints ?? 0) < 0" [class.up]="(delta.deltaPoints ?? 0) > 0">
+                {{ formatPoints(delta.deltaPoints) }}
+              </td>
+              <td class="bar-col">
+                @if (delta.baselineRate !== null) {
+                  <div class="bars" [attr.aria-label]="'Référence ' + formatRate(delta.baselineRate) + ', candidat ' + formatRate(delta.candidateRate)">
+                    <span class="bars__base" [style.width.%]="(delta.baselineRate ?? 0) * 100"></span>
+                    <span class="bars__cand" [style.width.%]="(delta.candidateRate ?? 0) * 100"></span>
+                  </div>
+                }
+              </td>
+              <td class="num">{{ delta.compared }}</td>
+              <td class="num" [class.down]="delta.regressed > 0">{{ delta.regressed }}</td>
+              <td class="num" [class.up]="delta.improved > 0">{{ delta.improved }}</td>
+              <td><span class="state state--small" [class]="'state--' + delta.status.toLowerCase()">{{ labels[delta.status] }}</span></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <p class="hint legend">
+      Taux calculés sur les mêmes cas des deux côtés (notés PASS ou FAIL dans les deux exécutions).
+      Barre grise : référence · barre colorée : candidat.
+    </p>
+
+    <!-- Cout et latence -->
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th scope="col">Coût et latence · cas communs</th>
+            <th scope="col" class="num">Référence</th>
+            <th scope="col" class="num">Candidat</th>
+            <th scope="col" class="num">Écart</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">Coût total</th>
+            <td class="num">{{ formatCost(r.cost.baselineTotal, r.cost.currency) }}</td>
+            <td class="num" [class]="tone(r.cost.baselineTotal, r.cost.candidateTotal)">{{ formatCost(r.cost.candidateTotal, r.cost.currency) }}</td>
+            <td class="num"></td>
+          </tr>
+          <tr>
+            <th scope="row">Coût par cas</th>
+            <td class="num">{{ formatCost(r.cost.baselinePerCase, r.cost.currency) }}</td>
+            <td class="num" [class]="tone(r.cost.baselinePerCase, r.cost.candidatePerCase)">{{ formatCost(r.cost.candidatePerCase, r.cost.currency) }}</td>
+            <td class="num"></td>
+          </tr>
+          <tr class="emphasis">
+            <th scope="row" title="Coût total ÷ réponses justes (correctness PASS)">Coût par réponse juste</th>
+            <td class="num">{{ formatCost(r.cost.baselinePerCorrect, r.cost.currency) }}</td>
+            <td class="num" [class]="tone(r.cost.baselinePerCorrect, r.cost.candidatePerCorrect)">{{ formatCost(r.cost.candidatePerCorrect, r.cost.currency) }}</td>
+            <td class="num">{{ formatPercentDelta(r.cost.deltaPerCorrectPercent) }}</td>
+          </tr>
+          <tr>
+            <th scope="row">Latence p50</th>
+            <td class="num">{{ formatMs(r.latency.baselineP50) }}</td>
+            <td class="num" [class]="tone(r.latency.baselineP50, r.latency.candidateP50)">{{ formatMs(r.latency.candidateP50) }}</td>
+            <td class="num">{{ formatPercentDelta(r.latency.deltaP50Percent) }}</td>
+          </tr>
+          <tr>
+            <th scope="row">Latence moyenne</th>
+            <td class="num">{{ formatMs(r.latency.baselineAvg) }}</td>
+            <td class="num" [class]="tone(r.latency.baselineAvg, r.latency.candidateAvg)">{{ formatMs(r.latency.candidateAvg) }}</td>
+            <td class="num"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Couverture -->
+    <div class="coverage">
+      <span><strong>{{ r.coverage.common }}</strong> cas comparés</span>
+      @if (r.coverage.added.length) {
+        <span [title]="r.coverage.added.join(', ')"><strong>{{ r.coverage.added.length }}</strong> seulement dans le candidat</span>
+      }
+      @if (r.coverage.removed.length) {
+        <span [title]="r.coverage.removed.join(', ')"><strong>{{ r.coverage.removed.length }}</strong> seulement dans la référence</span>
+      }
+      @if (r.coverage.modified.length) {
+        <span [title]="r.coverage.modified.join(', ')"><strong>{{ r.coverage.modified.length }}</strong> modifiés (exclus)</span>
+      }
+    </div>
+
+    @if (r.warnings.length) {
+      <ul class="warnings">
+        @for (w of r.warnings; track w) {
+          <li>{{ w }}</li>
+        }
+      </ul>
+    }
+
+    <!-- Cas qui ont bascule -->
+    <div class="changes">
+      <h3>Cas en baisse <span class="count">{{ regressions().length }}</span></h3>
+      @if (regressions().length === 0) {
+        <p class="hint">Aucun cas n'est passé de PASS à FAIL.</p>
+      }
+      @for (c of regressions(); track c.id) {
+        <article class="change change--down">
+          <header>
+            <span class="mono">{{ c.id }}</span>
+            <span class="badge">{{ c.category }}</span>
+            @if (c.kind === 'MIXED') {
+              <span class="badge badge--warning">mixte</span>
+            }
+          </header>
+          @for (t of c.transitions; track t.dimension) {
+            <p class="transition">
+              <span class="dim">{{ t.dimension }}</span>
+              <span class="verdict" [class]="'verdict--' + t.from.toLowerCase()">{{ t.from }}</span> →
+              <span class="verdict" [class]="'verdict--' + t.to.toLowerCase()">{{ t.to }}</span>
+              <span class="reason">{{ t.reason }}</span>
+            </p>
+          }
+        </article>
+      }
+
+      @if (improvements().length) {
+        <h3>Cas en hausse <span class="count">{{ improvements().length }}</span></h3>
+        @for (c of improvements(); track c.id) {
+          <article class="change change--up">
+            <header>
+              <span class="mono">{{ c.id }}</span>
+              <span class="badge">{{ c.category }}</span>
+            </header>
+            @for (t of c.transitions; track t.dimension) {
+              <p class="transition">
+                <span class="dim">{{ t.dimension }}</span>
+                <span class="verdict" [class]="'verdict--' + t.from.toLowerCase()">{{ t.from }}</span> →
+                <span class="verdict" [class]="'verdict--' + t.to.toLowerCase()">{{ t.to }}</span>
+              </p>
+            }
+          </article>
+        }
+      }
+    </div>
+
+    <p class="hint file">Rapport de régression écrit : <span class="mono">{{ r.file }}</span></p>
+  }
+</section>

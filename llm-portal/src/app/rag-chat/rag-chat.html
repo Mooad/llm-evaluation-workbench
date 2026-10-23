@@ -1,0 +1,299 @@
+<div class="layout">
+  <div class="main">
+    <app-rag-library-panel />
+
+    <section class="card chat" aria-labelledby="conversation-title">
+      <header class="chat__header">
+        <div class="heading">
+          <svg class="heading__icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 5h16v11H9l-5 4z" />
+          </svg>
+          <div>
+            <h2 id="conversation-title">Conversation RAG</h2>
+            <p class="hint">
+              @if (settings.ragMode()) {
+                Chaque question cherche d'abord les passages pertinents, puis le modèle répond à partir d'eux.
+              } @else {
+                Mode RAG désactivé : le modèle répond seul, sans document. Utile pour comparer.
+              }
+            </p>
+          </div>
+        </div>
+        <div class="chat__actions">
+          <label class="switch">
+            <input
+              type="checkbox"
+              role="switch"
+              [checked]="settings.ragMode()"
+              (change)="settings.ragMode.set($any($event.target).checked)"
+            />
+            <span class="switch__track" aria-hidden="true"></span>
+            Mode RAG
+          </label>
+          <button
+            type="button"
+            class="btn btn--ghost"
+            (click)="conversation.clear()"
+            [disabled]="conversation.turns().length === 0"
+          >
+            Nouvelle conversation
+          </button>
+        </div>
+      </header>
+
+      <div class="transcript" #transcript (scroll)="onScroll(transcript)">
+        @if (conversation.turns().length === 0) {
+          <div class="empty">
+            <p class="empty__title">Pose une question sur tes documents</p>
+            <p class="hint">
+              Seuls les passages retrouvés sont envoyés au modèle, avec leur source : pas tout le document.
+            </p>
+            <div class="suggestions">
+              @for (suggestion of suggestions; track suggestion) {
+                <button
+                  type="button"
+                  class="suggestion"
+                  (click)="send(suggestion)"
+                  [disabled]="!!conversation.blocker()"
+                >
+                  {{ suggestion }}
+                </button>
+              }
+            </div>
+          </div>
+        }
+
+        @for (turn of conversation.turns(); track turn.id) {
+          <article class="turn" [class.turn--user]="turn.role === 'user'">
+            <div class="turn__role">
+              @if (turn.role === 'user') {
+                Vous
+              } @else {
+                {{ turn.summary?.provider ?? 'Assistant' }}
+                <span class="mode" [class.mode--llm]="turn.mode === 'llm'">
+                  {{ turn.mode === 'rag' ? 'RAG' : 'LLM seul' }}
+                </span>
+              }
+            </div>
+
+            @if (turn.status === 'searching') {
+              <div class="turn__content turn__content--pending">Recherche des passages pertinents…</div>
+            } @else if (turn.content || turn.status === 'streaming') {
+              <div class="turn__content">
+                {{ turn.content }}@if (turn.status === 'streaming') {<span class="caret" aria-hidden="true"></span>}
+              </div>
+            }
+
+            @if (turn.hits && turn.hits.length > 0) {
+              <div class="refs" aria-label="Sources de cette réponse">
+                @for (hit of turn.hits; track hit.chunkIndex; let i = $index) {
+                  <span class="ref" [title]="hit.citation">[{{ i + 1 }}] {{ locationLabel(hit.location) }}</span>
+                }
+              </div>
+            }
+
+            @if (turn.role === 'assistant' && (turn.summary || turn.searchMs !== undefined)) {
+              <div class="turn__meta">
+                @if (turn.searchMs !== undefined) {
+                  <span title="Aller-retour POST /search, embedding de la question compris">
+                    recherche {{ formatMs(turn.searchMs) }} · {{ turn.hits?.length ?? 0 }} extraits
+                  </span>
+                }
+                @if (turn.summary; as s) {
+                  <span>{{ s.model }}</span>
+                  <span title="Tokens entrée / sortie, comptés par le fournisseur">
+                    {{ formatCount(s.inputTokens) }} → {{ formatCount(s.outputTokens) }} tokens
+                  </span>
+                  <span>{{ formatMs(s.latencyMs) }}</span>
+                  <span>{{ formatCost(s.estimatedCost, s.currency) }}</span>
+                  @if (s.fallbackUsed) {
+                    <span class="badge badge--warning">repli depuis {{ s.requestedProvider }}</span>
+                  }
+                }
+              </div>
+            }
+            @if (turn.status === 'stopped') {
+              <div class="turn__meta"><span class="badge">arrêté — réponse incomplète</span></div>
+            }
+            @if (turn.error; as e) {
+              <div class="alert" role="alert"><strong>{{ e.error }}</strong> {{ e.message }}</div>
+            }
+          </article>
+        }
+      </div>
+
+      @if (settings.showSources() && conversation.lastHits(); as hits) {
+        <section class="sources" aria-labelledby="sources-title">
+          <h3 id="sources-title">Sources retrouvées</h3>
+          <p class="hint">Passages envoyés au modèle pour la dernière question, du plus au moins proche.</p>
+          <app-rag-sources [hits]="hits" />
+        </section>
+      }
+
+      <form class="composer" (submit)="$event.preventDefault(); send()">
+        <label class="sr-only" for="rag-prompt">Question</label>
+        <textarea
+          #composer
+          id="rag-prompt"
+          rows="2"
+          [value]="draft()"
+          (input)="draft.set($any($event.target).value)"
+          (keydown)="onComposerKey($event)"
+          placeholder="Pose ta question… Entrée pour envoyer, Maj+Entrée pour aller à la ligne"
+        ></textarea>
+        @if (conversation.busy()) {
+          <button type="button" class="btn btn--danger" (click)="conversation.stop()">Arrêter</button>
+        } @else {
+          <button type="submit" class="btn btn--primary" [disabled]="!draft().trim() || !!conversation.blocker()">
+            Envoyer
+          </button>
+        }
+      </form>
+      @if (conversation.blocker(); as reason) {
+        <p class="blocker hint">{{ reason }}</p>
+      }
+    </section>
+  </div>
+
+  <aside class="side">
+    <section class="card" aria-labelledby="quick-title">
+      <header class="heading">
+        <svg class="heading__icon" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="3" />
+          <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1" />
+        </svg>
+        <div>
+          <h2 id="quick-title">Réglages rapides</h2>
+          <p class="hint">Pour cette session RAG.</p>
+        </div>
+      </header>
+
+      <div class="field">
+        <label for="active-index" title="Stratégie de découpage interrogée : les mêmes documents, découpés autrement">Index</label>
+        <!-- [selected] par option : les index arrivent apres le rendu, un [value] sur le select serait perdu. -->
+        <select id="active-index" (change)="settings.index.set($any($event.target).value)">
+          @for (index of library.indexes(); track index.name) {
+            <option [value]="index.name" [selected]="index.name === library.selectedIndex()?.name">
+              {{ index.name }} · {{ index.label }} ({{ index.ready }}/{{ index.documents }} documents)
+            </option>
+          }
+        </select>
+        @if (library.selectedIndex(); as index) {
+          <p class="hint">
+            <span class="mono">{{ index.chunker }}</span> · {{ formatCount(index.chunks) }} chunks
+            @if (index.processing > 0) {
+              · {{ index.processing }} en cours
+            }
+            <button
+              type="button"
+              class="link"
+              (click)="confirmRebuild(index.name)"
+              [disabled]="index.processing > 0"
+              title="Réindexe tous les documents dans cet index, à partir des fichiers conservés par llm-rag"
+            >
+              Reconstruire
+            </button>
+          </p>
+        }
+      </div>
+      <div class="field">
+        <label for="active-collection" title="Restreint la recherche aux documents de cette collection (filtre appliqué par llm-rag)">Collection active</label>
+        <!-- [selected] par option : les collections arrivent apres le rendu, un [value] sur le select serait perdu. -->
+        <select id="active-collection" (change)="settings.collection.set($any($event.target).value)">
+          <option value="" [selected]="!settings.collection()">Toutes les collections</option>
+          @for (c of library.collections(); track c) {
+            <option [value]="c" [selected]="c === settings.collection()">{{ c }}</option>
+          }
+        </select>
+      </div>
+      <div class="field">
+        <span class="label">Documents interrogés</span>
+        <p class="static">
+          {{ library.activeDocuments().length }} sur {{ library.visibleDocuments().length }} — cocher dans la liste
+        </p>
+      </div>
+      <div class="field">
+        <label for="top-k" title="Nombre de passages retrouvés et envoyés au modèle">Top-K</label>
+        <input
+          id="top-k"
+          type="number"
+          min="1"
+          [max]="maxTopK"
+          step="1"
+          #topK
+          [value]="settings.topK()"
+          (change)="setTopK(topK)"
+        />
+      </div>
+      <label class="switch" title="Demande au modèle de citer le numéro de l'extrait, ex. [2]">
+        <input type="checkbox" role="switch" [checked]="settings.cite()" (change)="settings.cite.set($any($event.target).checked)" />
+        <span class="switch__track" aria-hidden="true"></span>
+        Citer les sources
+      </label>
+      <label class="switch">
+        <input
+          type="checkbox"
+          role="switch"
+          [checked]="settings.showSources()"
+          (change)="settings.showSources.set($any($event.target).checked)"
+        />
+        <span class="switch__track" aria-hidden="true"></span>
+        Afficher les extraits retrouvés
+      </label>
+      <div class="field-row">
+        <div class="field">
+          <label for="rag-provider">Fournisseur</label>
+          <select id="rag-provider" (change)="session.provider.set($any($event.target).value)">
+            <option value="" [selected]="!session.provider()">
+              Défaut{{ config.providers() ? ' (' + config.providers()!.default + ')' : '' }}
+            </option>
+            @for (name of config.providers()?.available ?? []; track name) {
+              <option [value]="name" [selected]="name === session.provider()">{{ name }}</option>
+            }
+          </select>
+        </div>
+        <div class="field">
+          <label for="rag-model">Modèle</label>
+          <input
+            id="rag-model"
+            [value]="session.model()"
+            (input)="session.model.set($any($event.target).value)"
+            placeholder="défaut du fournisseur"
+          />
+        </div>
+      </div>
+      <p class="hint">Partagé avec le Playground (réglages de session de l'onglet).</p>
+    </section>
+
+    <section class="card" aria-labelledby="stats-title">
+      <header class="heading">
+        <svg class="heading__icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 20V11M12 20V4M19 20v-6" />
+        </svg>
+        <div>
+          <h2 id="stats-title">Session</h2>
+          <p class="hint">Statistiques de la conversation en cours.</p>
+        </div>
+      </header>
+      <div class="stats">
+        <div class="kpi" title="Chunks des documents cochés et prêts">
+          <span class="kpi__label">Chunks indexés</span>
+          <span class="kpi__value">{{ formatCount(library.activeChunks()) }}</span>
+        </div>
+        <div class="kpi" title="Tokens d'entrée de la dernière réponse (prompt, extraits et historique), comptés par le fournisseur">
+          <span class="kpi__label">Tokens entrée</span>
+          <span class="kpi__value">{{ formatCount(conversation.lastSummary()?.inputTokens) }}</span>
+        </div>
+        <div class="kpi" [title]="conversation.lastSummary()?.costBasis ?? 'Cumul des réponses de la conversation'">
+          <span class="kpi__label">Coût cumulé</span>
+          <span class="kpi__value">
+            {{ conversation.totals().requests ? formatCost(conversation.totals().cost, conversation.totals().currency) : '—' }}
+          </span>
+          @if (conversation.totals().unknownCost > 0) {
+            <span class="kpi__sub">+ {{ conversation.totals().unknownCost }} à coût inconnu</span>
+          }
+        </div>
+      </div>
+    </section>
+  </aside>
+</div>
